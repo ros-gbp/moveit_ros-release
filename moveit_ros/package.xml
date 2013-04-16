@@ -1,6 +1,6 @@
 <package>
   <name>moveit_ros</name>
-  <version>0.3.27</version>
+  <version>0.3.28</version>
   <description>Components of MoveIt that use ROS</description>
   <author email="isucan@willowgarage.com">Ioan Sucan</author>
   <author email="sachinc@willowgarage.com">Sachin Chitta</author>
@@ -20,6 +20,7 @@
   <run_depend>moveit_ros_warehouse</run_depend>
   <run_depend>moveit_ros_benchmarks</run_depend> 
   <run_depend>moveit_ros_benchmarks_gui</run_depend>
+  <run_depend>moveit_ros_robot_interaction</run_depend>
   <run_depend>moveit_ros_planning_interface</run_depend>
   <run_depend>moveit_ros_visualization</run_depend>
   <run_depend>moveit_ros_manipulation</run_depend>
