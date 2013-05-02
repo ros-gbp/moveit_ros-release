@@ -49,7 +49,8 @@ PointCloudOctomapUpdater::PointCloudOctomapUpdater() : OccupancyMapUpdater("Poin
                                                        max_range_(std::numeric_limits<double>::infinity()),
                                                        point_subsample_(1),
                                                        point_cloud_subscriber_(NULL),
-                                                       point_cloud_filter_(NULL)
+                                                       point_cloud_filter_(NULL),
+						       private_nh_("~")
 {
 }
 
@@ -64,12 +65,14 @@ bool PointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
   {    
     if (!params.hasMember("point_cloud_topic"))
       return false;
-    point_cloud_topic_ = std::string (params["point_cloud_topic"]);
+    point_cloud_topic_ = static_cast<const std::string&>(params["point_cloud_topic"]);
     
     readXmlParam(params, "max_range", &max_range_);
     readXmlParam(params, "shape_padding", &padding_);
     readXmlParam(params, "shape_scale", &scale_);
-    readXmlParam(params, "point_subsample", &point_subsample_);
+    readXmlParam(params, "point_subsample", &point_subsample_); 
+    if (params.hasMember("filtered_cloud_topic"))
+      filtered_cloud_topic_ = static_cast<const std::string&>(params["filtered_cloud_topic"]);
   }
   catch (XmlRpc::XmlRpcException &ex)
   {
@@ -85,6 +88,8 @@ bool PointCloudOctomapUpdater::initialize()
   tf_ = monitor_->getTFClient();
   shape_mask_.reset(new point_containment_filter::ShapeMask());
   shape_mask_->setTransformCallback(boost::bind(&PointCloudOctomapUpdater::getShapeTransform, this, _1, _2));
+  if (!filtered_cloud_topic_.empty())
+    filtered_cloud_publisher_ = private_nh_.advertise<sensor_msgs::PointCloud2>(filtered_cloud_topic_, 10, false);
   return true;
 }
 
@@ -192,14 +197,20 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
   Eigen::Vector3d sensor_origin_eigen(sensor_origin_tf.getX(), sensor_origin_tf.getY(), sensor_origin_tf.getZ());
   
   if (!updateTransformCache(cloud_msg->header.frame_id, cloud_msg->header.stamp))
+  {
     ROS_ERROR_THROTTLE(1, "Transform cache was not updated. Self-filtering may fail.");
-  
+    return;
+  }
+
   /* mask out points on the robot */
   shape_mask_->maskContainment(cloud, sensor_origin_eigen, 0.0, max_range_, mask_);
   updateMask(cloud, sensor_origin_eigen, mask_);
   
   octomap::KeySet free_cells, occupied_cells, model_cells;
-
+  boost::scoped_ptr<pcl::PointCloud<pcl::PointXYZ> > filtered_cloud;
+  if (!filtered_cloud_topic_.empty())
+    filtered_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>());
+  
   tree_->lockRead();
   
   try
@@ -226,7 +237,11 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
 	  if (mask_[row_c + col] == point_containment_filter::ShapeMask::INSIDE)
 	    model_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
 	  else
+          {
             occupied_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+            if (filtered_cloud)
+              filtered_cloud->push_back(p);
+          }          
         }
       }
     }
@@ -281,6 +296,14 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
   tree_->unlockWrite();
   ROS_DEBUG("Processed point cloud in %lf ms", (ros::WallTime::now() - start).toSec() * 1000.0);
   tree_->triggerUpdateCallback();
+
+  if (filtered_cloud)
+  { 
+    sensor_msgs::PointCloud2 filtered_cloud_msg;
+    pcl::toROSMsg(*filtered_cloud, filtered_cloud_msg);
+    filtered_cloud_msg.header = cloud_msg->header;
+    filtered_cloud_publisher_.publish(filtered_cloud_msg);
+  }
 }
 
 }
