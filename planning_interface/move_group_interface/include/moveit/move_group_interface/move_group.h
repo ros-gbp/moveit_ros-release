@@ -111,7 +111,13 @@ public:
   
   /** \brief Get the name of the group this instance operates on */
   const std::string& getName() const;
-  
+
+  /** \brief Get the name of the root link of the robot */
+  const std::string& getRobotRootLink() const;
+
+  /** \brief Get the name of the frame in which the robot is planning */
+  const std::string& getPlanningFrame() const;
+
   /** \brief Get the joints this instance operates on */
   const std::vector<std::string>& getJoints() const;
 
@@ -139,6 +145,9 @@ public:
   /** \brief Pick up an object */
   bool pick(const std::string &object);
 
+  /** \brief Pick up an object given a grasp pose */
+  bool pick(const std::string &object, const manipulation_msgs::Grasp &grasp);
+
   /** \brief Pick up an object given possible grasp poses */
   bool pick(const std::string &object, const std::vector<manipulation_msgs::Grasp> &grasps);
 
@@ -147,6 +156,17 @@ public:
 
   /** \brief Place an object at one of the specified possible locations */
   bool place(const std::string &object, const std::vector<manipulation_msgs::PlaceLocation> &locations);
+
+  /** \brief Place an object at one of the specified possible locations */
+  bool place(const std::string &object, const std::vector<geometry_msgs::PoseStamped> &poses);
+  
+  /** \brief Compute a Cartesian path that follows specified waypoints with a step size of at most \e eef_step meters
+      between end effector configurations of consecutive points in the result \e trajectory. No more than \e jump_threshold
+      is allowed as change in distance in the configuration space of the robot (this is to prevent 'jumps' in IK solutions).
+      Return a value that is between 0.0 and 1.0 indicating the fraction of the path achieved as described by the waypoints.
+      Return -1.0 in case of error. */
+  double computeCartesianPath(const std::vector<geometry_msgs::Pose> &waypoints, double eef_step, double jump_threshold,
+			      moveit_msgs::RobotTrajectory &trajectory);
   
   /** \brief Stop any trajectory execution, if one is active */
   void stop();
@@ -162,6 +182,9 @@ public:
 
   /** \brief Specify the maximum amount of time to use when planning */
   void setPlanningTime(double seconds);
+
+  /** \brief Gtet the number of seconds allowed for planning */
+  double getPlanningTime() const;
 
   /** \brief Get the tolerance that is used for reaching the goal. For
       joint state goals, this will be distance for each joint, in the
@@ -238,9 +261,8 @@ public:
       is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed */
   void setPositionTarget(double x, double y, double z, const std::string &end_effector_link = "");
   
-  /** \brief Set the goal orientation of the end-effector \e end_effector_link to be (\e x,\e y,\e z) radians about the (X,
-      Y, Z) axes. If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed  */
-  void setOrientationTarget(double x, double y, double z, const std::string &end_effector_link = "");
+  /** \brief Set the goal orientation of the end-effector \e end_effector_link to be (\e roll,\e pitch,\e yaw) radians. If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed  */
+  void setRPYTarget(double roll, double pitch, double yaw, const std::string &end_effector_link = "");
 
   /** \brief Set the goal orientation of the end-effector \e end_effector_link to be the quaternion (\e x,\e y,\e z,\e w).
       If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed  */
@@ -310,34 +332,6 @@ public:
 
   /**@}*/
 
-
-  /**
-   * \defgroup follow_existing_traj Follow an existing sequence of constraints
-   */
-  /**@{*/
-
-  /** \brief Follow the specified sequence of constraints */
-  void followConstraints(const std::vector<moveit_msgs::Constraints> &constraints);
-
-  /** \brief Follow a trajectory that takes the specified end-effector link through the specified sequence of poses.
-      The tolerance for achieving the position is \e tolerance_pos and the tolerance for achieving the orientation is \e tolerance_angle.
-      If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed */
-  void followConstraints(const std::vector<geometry_msgs::PoseStamped> &poses,  double tolerance_pos = 1e-3, double tolerance_angle = 1e-2, const std::string &end_effector_link = "");
-
-  /** \brief Follow a trajectory that takes the specified end-effector link through the specified sequence of poses. The
-      reference frame for the poses is assumed to be that returned by getPoseReferenceFrame().
-      The tolerance for achieving the position is \e tolerance_pos and the tolerance for achieving the orientation is \e tolerance_angle.
-      If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed */
-  void followConstraints(const std::vector<geometry_msgs::Pose> &poses,  double tolerance_pos = 1e-3, double tolerance_angle = 1e-2, const std::string &end_effector_link = "");
-  
-  /** \brief Follow a trajectory that takes the specified end-effector link through the specified sequence of poses. The
-      reference frame for the poses is assumed to be that returned by getPoseReferenceFrame().
-      The tolerance for achieving the position is \e tolerance_pos and the tolerance for achieving the orientation is \e tolerance_angle.
-      If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed */
-  void followConstraints(const EigenSTL::vector_Affine3d &poses, double tolerance_pos = 1e-3, double tolerance_angle = 1e-2, const std::string &end_effector_link = "");
-  
-  /**@}*/
-
   /**
    * \defgroup query_robot_state Query current robot state
    */
@@ -352,6 +346,10 @@ public:
   /** \brief Get the pose for the end-effector \e end_effector_link. 
       If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed */
   geometry_msgs::PoseStamped getCurrentPose(const std::string &end_effector_link = "");
+
+  /** \brief Get the roll-pitch-yaw (XYZ) for the end-effector \e end_effector_link. 
+      If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is assumed */
+  std::vector<double> getCurrentRPY(const std::string &end_effector_link = "");
 
   /** \brief Get random joint values for the joints planned for by this instance (see getJoints()) */
   std::vector<double> getRandomJointValues();
@@ -405,6 +403,19 @@ public:
   void clearPathConstraints();
 
   /**@}*/
+
+  /**
+   * \defgroup move_group_interface_world_management Manage the world
+   */
+  /**@{*/
+  
+  /** \brief Get the names of all recognized objects in the world */
+  std::vector<std::string> getRecognizedObjectNames();
+
+  /** \brief Get the names of all recognized objects in the world */
+  std::vector<std::string> getRecognizedObjectsInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz);
+  /**@}*/
+
 
 private:
 
