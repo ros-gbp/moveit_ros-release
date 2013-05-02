@@ -34,48 +34,30 @@
 
 /* Author: Ioan Sucan */
 
-#include <moveit/benchmarks/benchmark_utils.h>
-#include <pluginlib/class_loader.h>
-#include <moveit/planning_interface/planning_interface.h>
-#include <ros/console.h>
-#include <unistd.h>
+#ifndef MOVEIT_MOVE_GROUP_GET_PLANNING_SCENE_CAPABILITY_
+#define MOVEIT_MOVE_GROUP_GET_PLANNING_SCENE_CAPABILITY_
 
-namespace moveit_benchmarks
+#include <moveit/move_group/move_group_capability.h>
+#include <moveit_msgs/GetPlanningScene.h>
+
+namespace move_group
 {
 
-// keep this function in a separate file so we don't have the class_loader and mongoDB in the same namespace
-// as that couses boost::filesystem version issues (redefinition of symbols)
-std::vector<std::string> benchmarkGetAvailablePluginNames()
+class MoveGroupGetPlanningSceneService : public MoveGroupCapability
 {
-  // load the planning plugins
-  boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::Planner> > planner_plugin_loader;
-  try
-  {
-    planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::Planner>("moveit_core", "planning_interface::Planner"));
-  }
-  catch(pluginlib::PluginlibException& ex)
-  {
-    ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
-  }
+public:
+  
+  MoveGroupGetPlanningSceneService();
 
-  if (planner_plugin_loader)
-    return planner_plugin_loader->getDeclaredClasses();
-  else
-    return std::vector<std::string>();
-}
+  virtual void initialize();
 
-std::string getHostname() const
-{
-  static const int BUF_SIZE = 1024;
-  char buffer[BUF_SIZE];
-  int err = gethostname(buffer, sizeof(buffer));
-  if (err != 0)
-    return std::string();
-  else
-  {
-    buffer[BUF_SIZE - 1] = '\0';
-    return std::string(buffer);
-  }
-}
+private:
+  
+  bool getPlanningSceneService(moveit_msgs::GetPlanningScene::Request &req, moveit_msgs::GetPlanningScene::Response &res);
+  
+  ros::ServiceServer get_scene_service_;
+};
 
 }
+
+#endif
