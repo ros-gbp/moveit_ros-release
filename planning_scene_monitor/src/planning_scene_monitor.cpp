@@ -479,6 +479,7 @@ void planning_scene_monitor::PlanningSceneMonitor::collisionObjectCallback(const
 {
   if (scene_)
   {
+    updateFrameTransforms();
     {
       boost::unique_lock<boost::shared_mutex> ulock(scene_update_mutex_);
       last_update_time_ = ros::Time::now();
@@ -600,6 +601,8 @@ void planning_scene_monitor::PlanningSceneMonitor::excludeAttachedBodyFromOctree
   bool found = false;
   for (std::size_t i = 0 ; i < attached_body->getShapes().size() ; ++i)
   {
+    if (attached_body->getShapes()[i]->type == shapes::PLANE || attached_body->getShapes()[i]->type == shapes::OCTREE)
+      continue;
     occupancy_map_monitor::ShapeHandle h = octomap_monitor_->excludeShape(attached_body->getShapes()[i]);
     if (h)
     {
@@ -632,6 +635,8 @@ void planning_scene_monitor::PlanningSceneMonitor::excludeWorldObjectFromOctree(
   bool found = false;
   for (std::size_t i = 0 ; i < obj->shapes_.size() ; ++i)
   {
+    if (obj->shapes_[i]->type == shapes::PLANE || obj->shapes_[i]->type == shapes::OCTREE)
+      continue;
     occupancy_map_monitor::ShapeHandle h = octomap_monitor_->excludeShape(obj->shapes_[i]);
     if (h)
     {
@@ -937,10 +942,10 @@ void planning_scene_monitor::PlanningSceneMonitor::updateSceneWithCurrentState()
   if (current_state_monitor_)
   {
     std::vector<std::string> missing;
-    if (!current_state_monitor_->haveCompleteState(missing))
+    if (!current_state_monitor_->haveCompleteState(missing) && (ros::Time::now() - current_state_monitor_->getMonitorStartTime()).toSec() > 1.0)
     {
       std::string missing_str = boost::algorithm::join(missing, ", ");
-      ROS_WARN("The complete state of the robot is not yet known.  Missing %s", missing_str.c_str());
+      ROS_WARN_THROTTLE(1, "The complete state of the robot is not yet known.  Missing %s", missing_str.c_str());
     }
     
     {
@@ -952,7 +957,7 @@ void planning_scene_monitor::PlanningSceneMonitor::updateSceneWithCurrentState()
     triggerSceneUpdateEvent(UPDATE_STATE);
   }
   else
-    ROS_ERROR("State monitor is not active. Unable to set the planning scene state");
+    ROS_ERROR_THROTTLE(1, "State monitor is not active. Unable to set the planning scene state");
 }
 
 void planning_scene_monitor::PlanningSceneMonitor::addUpdateCallback(const boost::function<void(SceneUpdateType)> &fn)
