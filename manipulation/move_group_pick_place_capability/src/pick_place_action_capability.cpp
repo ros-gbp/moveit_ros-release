@@ -39,6 +39,9 @@
 #include <moveit/plan_execution/plan_with_sensing.h>
 #include <moveit/move_group_pick_place_capability/capability_names.h>
 
+#include <manipulation_msgs/GraspPlanning.h>
+#include <eigen_conversions/eigen_msg.h>
+
 move_group::MoveGroupPickPlaceAction::MoveGroupPickPlaceAction() : 
   MoveGroupCapability("PickPlaceAction"),
   pickup_state_(IDLE)
@@ -64,6 +67,8 @@ void move_group::MoveGroupPickPlaceAction::initialize()
                                                                                          boost::bind(&MoveGroupPickPlaceAction::executePlaceCallback, this, _1), false));
   place_action_server_->registerPreemptCallback(boost::bind(&MoveGroupPickPlaceAction::preemptPlaceCallback, this));
   place_action_server_->start();    
+
+  grasp_planning_service_ = root_node_handle_.serviceClient<manipulation_msgs::GraspPlanning>("database_grasp_planning");  
 }
 
 void move_group::MoveGroupPickPlaceAction::startPickupExecutionCallback()
@@ -273,8 +278,29 @@ void move_group::MoveGroupPickPlaceAction::executePickupCallback_PlanAndExecute(
   convertToMsg(plan.plan_components_, action_res.trajectory_start, action_res.trajectory_stages);
   action_res.trajectory_descriptions.resize(plan.plan_components_.size());
   for (std::size_t i = 0 ; i < plan.plan_components_.size() ; ++i)
+  {    
     action_res.trajectory_descriptions[i] = plan.plan_components_[i].description_;
+  }
+  addGraspToPickupResult(plan, action_res);
   action_res.error_code = plan.error_code_;
+}
+
+void move_group::MoveGroupPickPlaceAction::addGraspToPickupResult(const plan_execution::ExecutableMotionPlan &plan,
+								  moveit_msgs::PickupResult &action_res) const
+{    
+  for (std::size_t i = 0 ; i < plan.plan_components_.size() ; ++i)
+  {  
+    if(plan.plan_components_[i].description_ == "pre_grasp")
+    {
+      action_res.grasp.pre_grasp_posture.name = plan.plan_components_[i].trajectory_->getGroup()->getJointModelNames();
+      plan.plan_components_[i].trajectory_->getLastWayPoint().getJointStateGroup(plan.plan_components_[i].trajectory_->getGroupName())->getVariableValues(action_res.grasp.pre_grasp_posture.position);
+    }
+    if(plan.plan_components_[i].description_ == "grasp")
+    {
+      action_res.grasp.grasp_posture.name = plan.plan_components_[i].trajectory_->getGroup()->getJointModelNames();
+      plan.plan_components_[i].trajectory_->getLastWayPoint().getJointStateGroup(plan.plan_components_[i].trajectory_->getGroupName())->getVariableValues(action_res.grasp.grasp_posture.position);
+    }
+  }
 }
 
 void move_group::MoveGroupPickPlaceAction::executePlaceCallback_PlanAndExecute(const moveit_msgs::PlaceGoalConstPtr& goal, moveit_msgs::PlaceResult &action_res)
@@ -285,7 +311,6 @@ void move_group::MoveGroupPickPlaceAction::executePlaceCallback_PlanAndExecute(c
   opt.replan_attempts_ = goal->planning_options.replan_attempts;
   opt.replan_delay_ = goal->planning_options.replan_delay;
   opt.before_execution_callback_ = boost::bind(&MoveGroupPickPlaceAction::startPlaceExecutionCallback, this);
-  
   opt.plan_callback_ = boost::bind(&MoveGroupPickPlaceAction::planUsingPickPlace_Place, this, boost::cref(*goal), _1);
   if (goal->planning_options.look_around && context_->plan_with_sensing_)
   {
@@ -349,7 +374,7 @@ void move_group::MoveGroupPickPlaceAction::executePickupCallback(const moveit_ms
 void move_group::MoveGroupPickPlaceAction::executePlaceCallback(const moveit_msgs::PlaceGoalConstPtr& goal)
 {
   setPlaceState(PLANNING);
-  
+
   context_->planning_scene_monitor_->updateFrameTransforms();
   
   moveit_msgs::PlaceResult action_res;
@@ -403,10 +428,58 @@ void move_group::MoveGroupPickPlaceAction::setPlaceState(MoveGroupState state)
 void move_group::MoveGroupPickPlaceAction::fillGrasps(moveit_msgs::PickupGoal& goal)
 {
   planning_scene_monitor::LockedPlanningSceneRO lscene(context_->planning_scene_monitor_);
+  manipulation_msgs::GraspPlanning::Request request;
+  manipulation_msgs::GraspPlanning::Response response;
+
+  std::vector<std::string> object_ids = lscene->getWorld()->getObjectIds();
+  for(std::size_t i=0; i < object_ids.size(); ++i)
+  {
+    ROS_INFO("Collision world has object: %s", object_ids[i].c_str());
+  }
+  
   if (lscene->hasObjectType(goal.target_name))
   {
-    //    const object_recognition_msgs::ObjectType &ot = lscene->getObjectType(goal->target_name);
-    // need to call the grasp planner here
+    if(!lscene->getObjectType(goal.target_name).key.empty())
+    {
+      if(lscene->getWorld()->getObject(goal.target_name))
+      {
+	if(!lscene->getWorld()->getObject(goal.target_name)->shape_poses_.empty())
+	{
+	  request.arm_name = goal.group_name;    
+	  request.target.reference_frame_id = lscene->getPlanningFrame();
+	  
+	  household_objects_database_msgs::DatabaseModelPose dbp;    
+	  dbp.pose.header.frame_id = lscene->getPlanningFrame();
+	  dbp.pose.header.stamp = ros::Time::now();
+	  tf::poseEigenToMsg(lscene->getWorld()->getObject(goal.target_name)->shape_poses_[0], dbp.pose.pose);
+
+	  ROS_DEBUG("Object pose: %f %f %f", dbp.pose.pose.position.x, dbp.pose.pose.position.y, dbp.pose.pose.position.z);
+	  ROS_DEBUG("In frame: %s", dbp.pose.header.frame_id.c_str());
+
+	  dbp.type = lscene->getObjectType(goal.target_name);    
+	  std::stringstream dbp_type(dbp.type.key);
+	  dbp_type >> dbp.model_id;
+	  ROS_DEBUG("Asking database for grasps for %s with model id: %d", dbp.type.key.c_str(), dbp.model_id);
+	  request.target.potential_models.push_back(dbp);
+	}
+	else
+	{
+	  ROS_ERROR("Object has no meshes");
+	}
+	if (grasp_planning_service_)
+	{
+	  if(grasp_planning_service_.call(request, response))
+	  {
+	    ROS_INFO("Grasp planning successful");        
+	    goal.possible_grasps = response.grasps;
+	  }      
+	}        
+      }         
+    } 
+    else
+    {
+      ROS_WARN("Object is not a recognized object");
+    }
   }
 
   if (goal.possible_grasps.empty())

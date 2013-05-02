@@ -80,6 +80,8 @@ private:
   void setPlaceState(MoveGroupState state);
 
   void fillGrasps(moveit_msgs::PickupGoal& goal);
+  void addGraspToPickupResult(const plan_execution::ExecutableMotionPlan &plan,
+			      moveit_msgs::PickupResult &action_res) const;
 
   pick_place::PickPlacePtr pick_place_;
   
@@ -93,6 +95,9 @@ private:
 
   MoveGroupState pickup_state_;
   MoveGroupState place_state_;  
+
+  ros::ServiceClient grasp_planning_service_;
+  
 };
 
 }
