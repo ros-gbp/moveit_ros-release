@@ -1,7 +1,7 @@
 /*********************************************************************
 * Software License Agreement (BSD License)
 *
-*  Copyright (c) 2012, Willow Garage, Inc.
+*  Copyright (c) 2013, Willow Garage, Inc.
 *  All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -34,47 +34,61 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PY_BINDINGS_TOOLS_ROSCPP_INITIALIZER_
-#define MOVEIT_PY_BINDINGS_TOOLS_ROSCPP_INITIALIZER_
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/py_bindings_tools/roscpp_initializer.h>
+#include <moveit/py_bindings_tools/py_conversions.h>
 
+#include <boost/function.hpp>
 #include <boost/python.hpp>
-#include <string>
+#include <Python.h>
 
-/** \brief Tools for creating python bindings for MoveIt */
+/** @cond IGNORE */
+
+namespace bp = boost::python;
+
 namespace moveit
 {
-namespace py_bindings_tools
+namespace planning_interface
 {
 
-/** \brief The constructor of this class ensures that ros::init() has
-    been called.  Thread safety and multiple initialization is
-    properly handled. When the process terminates, ros::shotdown() is
-    also called, if needed. */
-class ROScppInitializer
+class PlanningSceneInterfaceWrapper : protected py_bindings_tools::ROScppInitializer,
+                                      public PlanningSceneInterface
 {
 public:
-  ROScppInitializer();
-  ROScppInitializer(boost::python::list &argv);
-  ROScppInitializer(const std::string &node_name, boost::python::list &argv);
-};
 
-/** \brief This function can be used to specify the ROS command line arguments for the internal ROScpp instance;
-    Usually this function would also be exposed in the py module that uses ROScppInitializer. */
-void roscpp_set_arguments(const std::string &node_name, boost::python::list &argv);
+  // ROSInitializer is constructed first, and ensures ros::init() was called, if needed
+  PlanningSceneInterfaceWrapper() : py_bindings_tools::ROScppInitializer(),
+                                    PlanningSceneInterface()
+  {
+  }
+  
+  bp::list getKnownObjectNamesPython(bool with_type = false)
+  {
+    return moveit::py_bindings_tools::listFromString(getKnownObjectNames(with_type));
+  }
+  
+  bp::list getKnownObjectNamesInROIPython(double minx, double miny, double minz, double maxx, double maxy, double maxz, bool with_type = false)
+  {
+    return moveit::py_bindings_tools::listFromString(getKnownObjectNamesInROI(minx, miny, minz, maxx, maxy, maxz, with_type));
+  }
+  
+};  
+  
+static void wrap_planning_scene_interface()
+{
+  bp::class_<PlanningSceneInterfaceWrapper> PlanningSceneClass("PlanningSceneInterface");
 
-/** \brief Initialize ROScpp with specified command line args */
-void roscpp_init(const std::string &node_name, boost::python::list &argv);
-
-/** \brief Initialize ROScpp with specified command line args */
-void roscpp_init(boost::python::list &argv);
-
-/** \brief Initialize ROScpp with default command line args */
-void roscpp_init();
-
-void roscpp_shutdown();
+  PlanningSceneClass.def("get_known_object_names", &PlanningSceneInterfaceWrapper::getKnownObjectNamesPython);  
+  PlanningSceneClass.def("get_known_object_names_in_roi", &PlanningSceneInterfaceWrapper::getKnownObjectNamesInROIPython);
+}
 
 }
 }
 
+BOOST_PYTHON_MODULE(_moveit_planning_scene_interface)
+{
+  using namespace moveit::planning_interface;
+  wrap_planning_scene_interface();
+}
 
-#endif
+/** @endcond */ 
