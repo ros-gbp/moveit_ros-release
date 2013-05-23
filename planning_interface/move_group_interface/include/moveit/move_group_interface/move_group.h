@@ -49,7 +49,9 @@
 #include <tf/tf.h>
 
 /** \brief Simple interface to the MoveGroup action */
-namespace move_group_interface
+namespace moveit
+{
+namespace planning_interface
 {
 
 /** \brief Client class for the MoveGroup action. This class includes many default settings to make things easy to use. */
@@ -60,29 +62,24 @@ public:
   /** \brief Default ROS parameter name from where to read the robot's URDF. Set to 'robot_description' */
   static const std::string ROBOT_DESCRIPTION;
   
-  /** \brief Default ROS topic from where to read the robot's joint states. Set to 'joint_states' */
-  static const std::string JOINT_STATE_TOPIC;
-
   /** \brief Specification of options to use when constructing the MoveGroup client class */
   struct Options
   {
-    Options(const std::string &group_name) : group_name_(group_name),
-                                             joint_state_topic_(JOINT_STATE_TOPIC),
-                                             robot_description_(ROBOT_DESCRIPTION)
+    Options(const std::string &group_name,
+            const std::string &desc = ROBOT_DESCRIPTION) :
+      group_name_(group_name),
+      robot_description_(desc)
     {
     }
 
     /// The group to construct the class instance for
     std::string group_name_;
 
-    /// The joint states topic (if different from default)
-    std::string joint_state_topic_;
-
     /// The robot description parameter name (if different from default)
     std::string robot_description_;
 
     /// Optionally, an instance of the RobotModel to use can be also specified
-    robot_model::RobotModelConstPtr kinematic_model_;
+    robot_model::RobotModelConstPtr robot_model_;
   };
 
   /// The representation of a motion plan (as ROS messasges)
@@ -121,84 +118,50 @@ public:
   /** \brief Get the joints this instance operates on */
   const std::vector<std::string>& getJoints() const;
 
+  /** \brief Get the number of variables used to describe the state of this group. This is larger or equal to the number of DOF. */
+  unsigned int getVariableCount() const;
+  
   /** \brief Get the description of the planning plugin loaded by the action server */
   bool getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription &desc);
   
-  /** \brief Plan and execute a trajectory that takes the group of joints declared in the constructor to the specified target.
-      This call is not blocking (does not wait for the execution of the trajectory to complete). */
-  bool asyncMove();
-  
-  /** \brief Plan and execute a trajectory that takes the group of joints declared in the constructor to the specified target.
-      This call is always blocking (waits for the execution of the trajectory to complete). */
-  bool move();
-
-  /** \brief Compute a motion plan that takes the group declared in the constructor from the current state to the specified
-      target. No execution is performed. The resulting plan is stored in \e plan*/
-  bool plan(Plan &plan);
-  
-  /** \brief Given a \e plan, execute it without waiting for completion. Return true on success. */
-  bool asyncExecute(const Plan &plan);
-  
-  /** \brief Given a \e plan, execute it while waiting for completion. Return true on success. */
-  bool execute(const Plan &plan);
-
-  /** \brief Pick up an object */
-  bool pick(const std::string &object);
-
-  /** \brief Pick up an object given a grasp pose */
-  bool pick(const std::string &object, const manipulation_msgs::Grasp &grasp);
-
-  /** \brief Pick up an object given possible grasp poses */
-  bool pick(const std::string &object, const std::vector<manipulation_msgs::Grasp> &grasps);
-
-  /** \brief Place an object somewhere safe in the world (a safe location will be detected) */
-  bool place(const std::string &object);
-
-  /** \brief Place an object at one of the specified possible locations */
-  bool place(const std::string &object, const std::vector<manipulation_msgs::PlaceLocation> &locations);
-
-  /** \brief Place an object at one of the specified possible locations */
-  bool place(const std::string &object, const std::vector<geometry_msgs::PoseStamped> &poses);
-  
-  /** \brief Compute a Cartesian path that follows specified waypoints with a step size of at most \e eef_step meters
-      between end effector configurations of consecutive points in the result \e trajectory. No more than \e jump_threshold
-      is allowed as change in distance in the configuration space of the robot (this is to prevent 'jumps' in IK solutions).
-      Return a value that is between 0.0 and 1.0 indicating the fraction of the path achieved as described by the waypoints.
-      Return -1.0 in case of error. */
-  double computeCartesianPath(const std::vector<geometry_msgs::Pose> &waypoints, double eef_step, double jump_threshold,
-			      moveit_msgs::RobotTrajectory &trajectory);
-  
-  /** \brief Stop any trajectory execution, if one is active */
-  void stop();
-  
-  /** \brief Specify whether the robot is allowed to look around before moving if it determines it should (default is true) */
-  void allowLooking(bool flag);
-
-  /** \brief Specify whether the robot is allowed to replan if it detects changes in the environment */
-  void allowReplanning(bool flag);
-  
-  /** \brief Specify a planner name to be used for further planning */
+  /** \brief Specify a planner to be used for further planning */
   void setPlannerId(const std::string &planner_id);
 
   /** \brief Specify the maximum amount of time to use when planning */
   void setPlanningTime(double seconds);
 
-  /** \brief Gtet the number of seconds allowed for planning */
+  /** \brief Get the number of seconds set by setPlanningTime() */
   double getPlanningTime() const;
 
-  /** \brief Get the tolerance that is used for reaching the goal. For
-      joint state goals, this will be distance for each joint, in the
-      configuration space. For pose goals this will be the side of a
-      cube where the end-effector must reach.*/
-  double getGoalTolerance() const;
+  /** \brief Get the tolerance that is used for reaching a joint goal. This is distance for each joint in configuration space */
+  double getGoalJointTolerance() const;
+
+  /** \brief Get the tolerance that is used for reaching a position goal. This is be the radius of a sphere where the end-effector must reach.*/
+  double getGoalPositionTolerance() const;
+
+  /** \brief Get the tolerance that is used for reaching an orientation goal. This is the tolerance for roll, pitch and yaw, in radians. */
+  double getGoalOrientationTolerance() const;
   
   /** \brief Set the tolerance that is used for reaching the goal. For
       joint state goals, this will be distance for each joint, in the
-      configuration space. For pose goals this will be the side of a
-      cube where the end-effector must reach.*/
+      configuration space. For pose goals this will be the radius of a sphere
+      where the end-effector must reach. This function simply triggers
+      calls to setGoalPositionTolerance(), setGoalOrientationTolerance()
+      and setGoalJointTolerance(). */
   void setGoalTolerance(double tolerance);
 
-  /** \brief Specify the workspace bounding box */
+  /** \brief Set the joint tolerance (for each joint) that is used for reaching the goal when moving to a joint configuration. */
+  void setGoalJointTolerance(double tolerance);
+
+  /** \brief Set the position tolerance that is used for reaching the goal when moving to a pose. */
+  void setGoalPositionTolerance(double tolerance);
+
+  /** \brief Set the orientation tolerance that is used for reaching the goal when moving to a pose. */
+  void setGoalOrientationTolerance(double tolerance);
+  
+  /** \brief Specify the workspace bounding box.
+       The box is specified in the planning frame (i.e. relative to the robot root link start position).
+       This is useful when the MoveGroup's group contains the root joint of the robot -- i.e. when planning motion for the robot relative to the world. */
   void setWorkspace(double minx, double miny, double minz, double maxx, double maxy, double maxz);
   
   /** \brief If a different start state should be considered instead of the current state of the robot, this function sets that state */
@@ -211,7 +174,7 @@ public:
   void setSupportSurfaceName(const std::string &name);
   
   /**
-   * \defgroup set_joint_goal Setting a joint state goal
+   * \defgroup set_joint_goal Setting a joint state target (goal)
    */
   /**@{*/
 
@@ -221,13 +184,15 @@ public:
   /** \brief Given a map of joint names to real values, set those as the joint state goal */
   void setJointValueTarget(const std::map<std::string, double> &variable_values);
 
-  /** \brief Set the joint state goal from corresponding joint values from the specified state */
-  void setJointValueTarget(const robot_state::RobotState &kinematic_state);
+  /** \brief Set the joint state goal from corresponding joint values from the specified state.
+      Values from state for joints not in this MoveGroup's group are ignored. */
+  void setJointValueTarget(const robot_state::RobotState &robot_state);
 
-  /** \brief Set the joint state goal from corresponding joint values from the specified state */
+  /** \brief Set the joint state goal from corresponding joint values from the specified group.
+      joint_state_group must represent the same group as this MoveGroup. */
   void setJointValueTarget(const robot_state::JointStateGroup &joint_state_group);
   
-  /** \brief Set the joint state goal for a particula joint */
+  /** \brief Set the joint state goal for a particular joint */
   void setJointValueTarget(const robot_state::JointState &joint_state);
 
   /** \brief Set the joint state goal for a particular joint */
@@ -253,7 +218,7 @@ public:
 
 
   /**
-   * \defgroup set_pose_goal Setting a pose goal
+   * \defgroup set_pose_goal Setting a pose target (goal)
    */
   /**@{*/
 
@@ -327,8 +292,80 @@ public:
       If there are multiple end-effectors, one of them is returned. If no end-effector is known, the empty string is returned. */
   const std::string& getEndEffector() const;
   
-  /** \brief Get the reference frame set by setPoseReferenceFrame(). By default this is the reference frame of the kinematic model */
+  /** \brief Get the reference frame set by setPoseReferenceFrame(). By default this is the reference frame of the robot model */
   const std::string& getPoseReferenceFrame() const;
+
+  /**@}*/
+
+  /**
+   * \defgroup plan_and_exec Planning a path from the start position to the Target (goal) position, and executing that plan.
+   */
+  /**@{*/
+
+  /** \brief Plan and execute a trajectory that takes the group of joints declared in the constructor to the specified target.
+      This call is not blocking (does not wait for the execution of the trajectory to complete). */
+  bool asyncMove();
+  
+  /** \brief Plan and execute a trajectory that takes the group of joints declared in the constructor to the specified target.
+      This call is always blocking (waits for the execution of the trajectory to complete). */
+  bool move();
+
+  /** \brief Compute a motion plan that takes the group declared in the constructor from the current state to the specified
+      target. No execution is performed. The resulting plan is stored in \e plan*/
+  bool plan(Plan &plan);
+  
+  /** \brief Given a \e plan, execute it without waiting for completion. Return true on success. */
+  bool asyncExecute(const Plan &plan);
+  
+  /** \brief Given a \e plan, execute it while waiting for completion. Return true on success. */
+  bool execute(const Plan &plan);
+
+  /** \brief Compute a Cartesian path that follows specified waypoints with a step size of at most \e eef_step meters
+      between end effector configurations of consecutive points in the result \e trajectory. The reference frame for the 
+      waypoints is that specified by setPoseReferenceFrame(). No more than \e jump_threshold
+      is allowed as change in distance in the configuration space of the robot (this is to prevent 'jumps' in IK solutions).
+      Collisions are avoided if \e avoid_collisions is set to true. If collisions cannot be avoided, the function fails.
+      Return a value that is between 0.0 and 1.0 indicating the fraction of the path achieved as described by the waypoints.
+      Return -1.0 in case of error. */
+  double computeCartesianPath(const std::vector<geometry_msgs::Pose> &waypoints, double eef_step, double jump_threshold,
+			      moveit_msgs::RobotTrajectory &trajectory,  bool avoid_collisions = true);
+  
+  /** \brief Stop any trajectory execution, if one is active */
+  void stop();
+  
+  /** \brief Specify whether the robot is allowed to look around before moving if it determines it should (default is true) */
+  void allowLooking(bool flag);
+
+  /** \brief Specify whether the robot is allowed to replan if it detects changes in the environment */
+  void allowReplanning(bool flag);
+  
+  /**@}*/
+
+  /**
+   * \defgroup high_level High level actions that trigger a sequence of plans and actions.
+   */
+  /**@{*/
+
+  /** \brief Pick up an object */
+  bool pick(const std::string &object);
+
+  /** \brief Pick up an object given a grasp pose */
+  bool pick(const std::string &object, const manipulation_msgs::Grasp &grasp);
+
+  /** \brief Pick up an object given possible grasp poses */
+  bool pick(const std::string &object, const std::vector<manipulation_msgs::Grasp> &grasps);
+
+  /** \brief Place an object somewhere safe in the world (a safe location will be detected) */
+  bool place(const std::string &object);
+
+  /** \brief Place an object at one of the specified possible locations */
+  bool place(const std::string &object, const std::vector<manipulation_msgs::PlaceLocation> &locations);
+
+  /** \brief Place an object at one of the specified possible locations */
+  bool place(const std::string &object, const std::vector<geometry_msgs::PoseStamped> &poses); 
+
+  /** \brief Place an object at one of the specified possible location */
+  bool place(const std::string &object, const geometry_msgs::PoseStamped &pose);
 
   /**@}*/
 
@@ -404,19 +441,6 @@ public:
 
   /**@}*/
 
-  /**
-   * \defgroup move_group_interface_world_management Manage the world
-   */
-  /**@{*/
-  
-  /** \brief Get the names of all recognized objects in the world */
-  std::vector<std::string> getRecognizedObjectNames();
-
-  /** \brief Get the names of all recognized objects in the world */
-  std::vector<std::string> getRecognizedObjectsInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz);
-  /**@}*/
-
-
 private:
 
   std::map<std::string, std::vector<double> > remembered_joint_values_;
@@ -426,4 +450,8 @@ private:
 };
 
 }
+}
+// for backward compatibility; remove in hydro
+namespace move_group_interface=moveit::planning_interface;
+
 #endif
