@@ -40,10 +40,9 @@
 #include <moveit/move_group/capability_names.h>
 #include <moveit/move_group_pick_place_capability/capability_names.h>
 #include <moveit/move_group_interface/move_group.h>
-#include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
 #include <moveit/trajectory_execution_manager/trajectory_execution_manager.h>
-
+#include <moveit/common_planning_interface_objects/common_objects.h>
 #include <moveit/robot_state/conversions.h>
 #include <moveit_msgs/MoveGroupAction.h>
 #include <moveit_msgs/PickupAction.h>
@@ -51,7 +50,6 @@
 #include <moveit_msgs/ExecuteKnownTrajectory.h>
 #include <moveit_msgs/QueryPlannerInterfaces.h>
 #include <moveit_msgs/GetCartesianPath.h>
-#include <moveit_msgs/GetPlanningScene.h>
 
 #include <actionlib/client/simple_action_client.h>
 #include <eigen_conversions/eigen_msg.h>
@@ -62,78 +60,20 @@
 #include <ros/console.h>
 #include <ros/ros.h>
 
-namespace move_group_interface
+namespace moveit
+{
+namespace planning_interface
 {
 
 const std::string MoveGroup::ROBOT_DESCRIPTION = "robot_description";    // name of the robot description (a param name, so it can be changed externally)
-const std::string MoveGroup::JOINT_STATE_TOPIC = "joint_states";    // name of the topic where joint states are published
 
 namespace
 {
 
-struct SharedStorage
+enum ActiveTargetType
 {
-  SharedStorage()
-  {
-  }
-
-  ~SharedStorage()
-  {
-    tf_.reset();
-    state_monitors_.clear();
-    model_loaders_.clear(); 
-  }
-  
-  boost::mutex lock_;
-  boost::shared_ptr<tf::Transformer> tf_;
-  std::map<std::string, robot_model_loader::RobotModelLoaderPtr> model_loaders_;
-  std::map<std::string, planning_scene_monitor::CurrentStateMonitorPtr> state_monitors_;
+  JOINT, POSE, POSITION, ORIENTATION
 };
-
-SharedStorage& getSharedStorage()
-{
-  static SharedStorage storage;
-  return storage;
-}
-
-boost::shared_ptr<tf::Transformer> getSharedTF()
-{
-  SharedStorage &s = getSharedStorage();
-  boost::mutex::scoped_lock slock(s.lock_);
-  if (!s.tf_)
-    s.tf_.reset(new tf::TransformListener());
-  return s.tf_;
-}
-
-robot_model::RobotModelConstPtr getSharedRobotModel(const std::string &robot_description)
-{ 
-  SharedStorage &s = getSharedStorage();
-  boost::mutex::scoped_lock slock(s.lock_);
-  if (s.model_loaders_.find(robot_description) != s.model_loaders_.end())
-    return s.model_loaders_[robot_description]->getModel();
-  else
-  {
-    robot_model_loader::RobotModelLoader::Options opt(robot_description);
-    opt.load_kinematics_solvers_ = false;
-    robot_model_loader::RobotModelLoaderPtr loader(new robot_model_loader::RobotModelLoader(opt));
-    s.model_loaders_[robot_description] = loader;
-    return loader->getModel();
-  }
-} 
-
-static planning_scene_monitor::CurrentStateMonitorPtr getSharedStateMonitor(const robot_model::RobotModelConstPtr &kmodel, const boost::shared_ptr<tf::Transformer> &tf)
-{  
-  SharedStorage &s = getSharedStorage();
-  boost::mutex::scoped_lock slock(s.lock_);
-  if (s.state_monitors_.find(kmodel->getName()) != s.state_monitors_.end())
-    return s.state_monitors_[kmodel->getName()];
-  else
-  {
-    planning_scene_monitor::CurrentStateMonitorPtr monitor(new planning_scene_monitor::CurrentStateMonitor(kmodel, tf));
-    s.state_monitors_[kmodel->getName()] = monitor;
-    return monitor;
-  }
-}
 
 }
 
@@ -143,7 +83,7 @@ public:
   
   MoveGroupImpl(const Options &opt, const boost::shared_ptr<tf::Transformer> &tf, const ros::Duration &wait_for_server) : opt_(opt), tf_(tf)
   {
-    kinematic_model_ = opt.kinematic_model_ ? opt.kinematic_model_ : getSharedRobotModel(opt.robot_description_);
+    robot_model_ = opt.robot_model_ ? opt.robot_model_ : getSharedRobotModel(opt.robot_description_);
     if (!getRobotModel())
     {
       std::string error = "Unable to construct robot model. Please make sure all needed information is on the parameter server.";
@@ -163,7 +103,10 @@ public:
     active_target_ = JOINT;
     can_look_ = false;
     can_replan_ = false;
-    goal_tolerance_ = 1e-4;
+    replan_delay_ = 2.0;
+    goal_joint_tolerance_ = 1e-4;
+    goal_position_tolerance_ = 1e-4; // 0.1 mm
+    goal_orientation_tolerance_ = 1e-3; // ~0.1 deg
     planning_time_ = 5.0;
     initializing_constraints_ = false;
     
@@ -176,7 +119,7 @@ public:
       
       trajectory_event_publisher_ = node_handle_.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
       
-      current_state_monitor_ = getSharedStateMonitor(kinematic_model_, tf_);
+      current_state_monitor_ = getSharedStateMonitor(robot_model_, tf_);
 
       move_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>(move_group::MOVE_ACTION, false));
       waitForAction(move_action_client_, wait_for_server, move_group::MOVE_ACTION);
@@ -190,8 +133,7 @@ public:
       execute_service_ = node_handle_.serviceClient<moveit_msgs::ExecuteKnownTrajectory>(move_group::EXECUTE_SERVICE_NAME);
       query_service_ = node_handle_.serviceClient<moveit_msgs::QueryPlannerInterfaces>(move_group::QUERY_PLANNERS_SERVICE_NAME);
       cartesian_path_service_ = node_handle_.serviceClient<moveit_msgs::GetCartesianPath>(move_group::CARTESIAN_PATH_SERVICE_NAME);
-
-      planning_scene_service_ = node_handle_.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
+      
       ROS_INFO_STREAM("Ready to take MoveGroup commands for group " << opt.group_name_ << ".");
     }
     else
@@ -201,7 +143,7 @@ public:
   template<typename T>
   void waitForAction(const T &action, const ros::Duration &wait_for_server, const std::string &name)
   {
-    ROS_INFO("Waiting for MoveGroup action server (%s)...", name.c_str());
+    ROS_DEBUG("Waiting for MoveGroup action server (%s)...", name.c_str());
     
     // in case ROS time is published, wait for the time data to arrive
     ros::Time start_time = ros::Time::now();
@@ -233,7 +175,7 @@ public:
     if (!action->isServerConnected())
       throw std::runtime_error("Unable to connect to action server within allotted time");
     else
-      ROS_INFO("Connected to '%s'", name.c_str());
+      ROS_DEBUG("Connected to '%s'", name.c_str());
   }
   
   ~MoveGroupImpl()
@@ -254,7 +196,7 @@ public:
   
   const robot_model::RobotModelConstPtr& getRobotModel() const
   {
-    return kinematic_model_;
+    return robot_model_;
   }
 
   bool getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription &desc)
@@ -390,26 +332,14 @@ public:
     return pose_reference_frame_;
   }
   
-  void useJointStateTarget()
+  void setTargetType(ActiveTargetType type)
   {
-    active_target_ = JOINT;    
+    active_target_ = type;
   }
   
-  void usePoseTarget()
+  ActiveTargetType getTargetType() const
   {
-    active_target_ = POSE;
-  }
-    
-  void allowLooking(bool flag)
-  {
-    can_look_ = flag;
-    ROS_INFO("Looking around: %s", can_look_ ? "yes" : "no");
-  }
-
-  void allowReplanning(bool flag)
-  {
-    can_replan_ = flag;
-    ROS_INFO("Replanning: %s", can_replan_ ? "yes" : "no");
+    return active_target_;
   }
   
   bool getCurrentState(robot_state::RobotStatePtr &current_state)
@@ -419,34 +349,13 @@ public:
       ROS_ERROR("Unable to get current robot state");
       return false;
     }
-        
+    
     // if needed, start the monitor and wait up to 1 second for a full robot state
     if (!current_state_monitor_->isActive())
-    {
-      current_state_monitor_->startStateMonitor(opt_.joint_state_topic_);
-      double slept_time = 0.0;
-      static const double sleep_step = 0.05;
-      while (!current_state_monitor_->haveCompleteState() && slept_time < 1.0)
-      {
-        ros::Duration(sleep_step).sleep();
-        slept_time += sleep_step;
-      }      
-    }
+      current_state_monitor_->startStateMonitor();
     
-    // check to see if we have a fully known state for the joints we want to record
-    std::vector<std::string> missing_joints;
-    if (!current_state_monitor_->haveCompleteState(missing_joints))
-    {
-      std::set<std::string> mj;
-      mj.insert(missing_joints.begin(), missing_joints.end());
-      const std::vector<std::string> &names= getJointStateTarget()->getJointNames();
-      bool ok = true;
-      for (std::size_t i = 0 ; ok && i < names.size() ; ++i)
-        if (mj.find(names[i]) != mj.end())
-          ok = false;
-      if (!ok)
-        ROS_WARN("Joint values for monitored state are requested but the full state is not known");
-    }
+    if (!current_state_monitor_->waitForCurrentState(opt_.group_name_, 1.0))
+      ROS_WARN("Joint values for monitored state are requested but the full state is not known");
     
     current_state = current_state_monitor_->getCurrentState();
     return true;
@@ -584,8 +493,8 @@ public:
     goal.planning_options.plan_only = false;
     goal.planning_options.look_around = can_look_;
     goal.planning_options.replan = can_replan_;
-    goal.planning_options.replan_delay = 2.0; // this should become a parameter
-
+    goal.planning_options.replan_delay = replan_delay_;
+    
     move_action_client_->sendGoal(goal);
     if (!wait)
       return true;
@@ -617,7 +526,7 @@ public:
   }
   
   double computeCartesianPath(const std::vector<geometry_msgs::Pose> &waypoints, double step, double jump_threshold,
-			      moveit_msgs::RobotTrajectory &msg)
+			      moveit_msgs::RobotTrajectory &msg, bool avoid_collisions)
   {
     moveit_msgs::GetCartesianPath::Request req;
     moveit_msgs::GetCartesianPath::Response res;
@@ -630,7 +539,7 @@ public:
     req.waypoints = waypoints;
     req.max_step = step;
     req.jump_threshold = jump_threshold;
-    req.avoid_collisions = true;
+    req.avoid_collisions = avoid_collisions;
 
     if (cartesian_path_service_.call(req, res))
     {
@@ -656,16 +565,36 @@ public:
     }
   }
   
-  double getGoalTolerance() const
+  double getGoalPositionTolerance() const
   {
-    return goal_tolerance_;
-  }
-  
-  void setGoalTolerance(double tolerance)
-  {
-    goal_tolerance_ = tolerance;
+    return goal_position_tolerance_;
   }
 
+  double getGoalOrientationTolerance() const
+  {
+    return goal_orientation_tolerance_;
+  }
+
+  double getGoalJointTolerance() const
+  {
+    return goal_joint_tolerance_;
+  }
+  
+  void setGoalJointTolerance(double tolerance)
+  {
+    goal_joint_tolerance_ = tolerance;
+  }
+  
+  void setGoalPositionTolerance(double tolerance)
+  {
+    goal_position_tolerance_ = tolerance;
+  }
+  
+  void setGoalOrientationTolerance(double tolerance)
+  {
+    goal_orientation_tolerance_ = tolerance;
+  }
+  
   void setPlanningTime(double seconds)
   {
     if (seconds > 0.0)
@@ -677,6 +606,29 @@ public:
     return planning_time_;
   }
 
+  void allowLooking(bool flag)
+  {
+    can_look_ = flag;
+    ROS_INFO("Looking around: %s", can_look_ ? "yes" : "no");
+  }
+
+  void allowReplanning(bool flag)
+  {
+    can_replan_ = flag;
+    ROS_INFO("Replanning: %s", can_replan_ ? "yes" : "no");
+  }
+  
+  void setReplanningDelay(double delay)
+  {
+    if (delay >= 0.0)
+      replan_delay_ = delay;
+  }
+  
+  double getReplanningDelay() const
+  {
+    return replan_delay_;
+  }
+  
   void constructGoal(moveit_msgs::MoveGroupGoal &goal_out)
   {
     moveit_msgs::MoveGroupGoal goal;
@@ -692,21 +644,35 @@ public:
     if (active_target_ == JOINT)
     {    
       goal.request.goal_constraints.resize(1);
-      goal.request.goal_constraints[0] = kinematic_constraints::constructGoalConstraints(getJointStateTarget(), goal_tolerance_);
+      goal.request.goal_constraints[0] = kinematic_constraints::constructGoalConstraints(getJointStateTarget(), goal_joint_tolerance_);
     }
     else
-      if (active_target_ == POSE)
+      if (active_target_ == POSE || active_target_ == POSITION || active_target_ == ORIENTATION)
       {
+        // find out how many goals are specified
+        std::size_t goal_count = 0;
+        for (std::map<std::string, std::vector<geometry_msgs::PoseStamped> >::const_iterator it = pose_targets_.begin() ;
+             it != pose_targets_.end() ; ++it)
+          goal_count = std::max(goal_count, it->second.size());
+
+        // start filling the goals; 
+        // each end effector has a number of possible poses (K) as valid goals
+        // but there could be multiple end effectors specified, so we want each end effector
+        // to reach the goal that corresponds to the goals of the other end effectors
+        goal.request.goal_constraints.resize(goal_count);
+        
         for (std::map<std::string, std::vector<geometry_msgs::PoseStamped> >::const_iterator it = pose_targets_.begin() ;
              it != pose_targets_.end() ; ++it)
         {
-          moveit_msgs::Constraints g;
           for (std::size_t i = 0 ; i < it->second.size() ; ++i)
           {
-            moveit_msgs::Constraints c = kinematic_constraints::constructGoalConstraints(it->first, it->second[i], goal_tolerance_);
-            g = kinematic_constraints::mergeConstraints(g, c);
+            moveit_msgs::Constraints c = kinematic_constraints::constructGoalConstraints(it->first, it->second[i], goal_position_tolerance_, goal_orientation_tolerance_);
+            if (active_target_ == ORIENTATION)
+              c.position_constraints.clear();
+            if (active_target_ == POSITION)
+              c.orientation_constraints.clear();
+            goal.request.goal_constraints[i] = kinematic_constraints::mergeConstraints(goal.request.goal_constraints[i], c);
           }
-          goal.request.goal_constraints.push_back(g);
         }
       }
       else
@@ -758,7 +724,7 @@ public:
     if (constraints_storage_)
     {
       moveit_warehouse::ConstraintsWithMetadata msg_m;
-      if (constraints_storage_->getConstraints(msg_m, constraint, kinematic_model_->getName(), opt_.group_name_))
+      if (constraints_storage_->getConstraints(msg_m, constraint, robot_model_->getName(), opt_.group_name_))
       {
         path_constraints_.reset(new moveit_msgs::Constraints(static_cast<moveit_msgs::Constraints>(*msg_m)));
 	return true;
@@ -785,7 +751,7 @@ public:
 
     std::vector<std::string> c;
     if (constraints_storage_)
-      constraints_storage_->getKnownConstraints(c, kinematic_model_->getName(), opt_.group_name_);
+      constraints_storage_->getKnownConstraints(c, robot_model_->getName(), opt_.group_name_);
 
     return c;
   }
@@ -810,64 +776,6 @@ public:
     workspace_parameters_.max_corner.z = maxz;    
   }
 
-  std::vector<std::string> getRecognizedObjectNames()
-  {
-    moveit_msgs::GetPlanningScene::Request request;
-    moveit_msgs::GetPlanningScene::Response response;
-    std::vector<std::string> result;
-    request.components.components = request.components.WORLD_OBJECT_NAMES;
-    if (!planning_scene_service_.call(request, response))
-      return result;
-    for (std::size_t i = 0; i < response.scene.world.collision_objects.size(); ++i)
-      if (!response.scene.world.collision_objects[i].type.key.empty())
-	result.push_back(response.scene.world.collision_objects[i].id);
-    
-    return result;
-  }
-
-  std::vector<std::string> getRecognizedObjectsInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz)
-  {
-    moveit_msgs::GetPlanningScene::Request request;
-    moveit_msgs::GetPlanningScene::Response response;
-    std::vector<std::string> result;
-    request.components.components = request.components.WORLD_OBJECT_GEOMETRY;
-    if (!planning_scene_service_.call(request, response))
-      return result;
-    ROS_DEBUG("Got %u objects in world", (unsigned int)response.scene.world.collision_objects.size());
-    for (std::size_t i=0; i < response.scene.world.collision_objects.size(); ++i)
-    {
-      if (!response.scene.world.collision_objects[i].type.key.empty())
-      {
-	//check where the object is
-	if (!response.scene.world.collision_objects[i].mesh_poses.empty())
-	{
-	  if (response.scene.world.collision_objects[i].mesh_poses[0].position.x >= minx &&
-              response.scene.world.collision_objects[i].mesh_poses[0].position.x <= maxx &&
-              response.scene.world.collision_objects[i].mesh_poses[0].position.y >= miny &&
-              response.scene.world.collision_objects[i].mesh_poses[0].position.y <= maxy &&
-              response.scene.world.collision_objects[i].mesh_poses[0].position.z >= minz &&
-              response.scene.world.collision_objects[i].mesh_poses[0].position.z <= maxz)
-          {	
-            result.push_back(response.scene.world.collision_objects[i].id);
-          }
-	  else
-	    ROS_DEBUG("Object: %d with id: %s outside ROI with position %s: %lf %lf %lf", 
-		      (int) i, 
-		      response.scene.world.collision_objects[i].id.c_str(),
-		      response.scene.world.collision_objects[i].header.frame_id.c_str(),
-		      response.scene.world.collision_objects[i].mesh_poses[0].position.x,
-		      response.scene.world.collision_objects[i].mesh_poses[0].position.y,
-		      response.scene.world.collision_objects[i].mesh_poses[0].position.z);
-	}
-	else
-	  ROS_ERROR("No mesh poses for object: %d", (int) i);
-      }
-      else
-	ROS_DEBUG("Type is empty for object: %d with id: %s", (int) i, response.scene.world.collision_objects[i].id.c_str());
-    }
-    return result;
-  }
-  
 private:
   
   void initializeConstraintsStorageThread(const std::string &host, unsigned int port)
@@ -884,15 +792,10 @@ private:
     initializing_constraints_ = false;
   }
   
-  enum ActiveTarget
-    {
-      JOINT, POSE
-    };
-  
   Options opt_;
   ros::NodeHandle node_handle_;
   boost::shared_ptr<tf::Transformer> tf_;
-  robot_model::RobotModelConstPtr kinematic_model_;
+  robot_model::RobotModelConstPtr robot_model_;
   planning_scene_monitor::CurrentStateMonitorPtr current_state_monitor_;
   boost::scoped_ptr<actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> > move_action_client_;
   boost::scoped_ptr<actionlib::SimpleActionClient<moveit_msgs::PickupAction> > pick_action_client_;
@@ -903,18 +806,22 @@ private:
   moveit_msgs::WorkspaceParameters workspace_parameters_;
   double planning_time_;
   std::string planner_id_;
-  double goal_tolerance_;
+  double goal_joint_tolerance_;
+  double goal_position_tolerance_;
+  double goal_orientation_tolerance_;
   bool can_look_;
   bool can_replan_;
+  double replan_delay_;
   
   // joint state goal
   robot_state::RobotStatePtr joint_state_target_;
 
-  // pose goal
+  // pose goal;
+  // for each link we have a set of possible goal locations;
   std::map<std::string, std::vector<geometry_msgs::PoseStamped> > pose_targets_;
 
   // common properties for goals
-  ActiveTarget active_target_;
+  ActiveTargetType active_target_;
   boost::scoped_ptr<moveit_msgs::Constraints> path_constraints_;
   std::string end_effector_link_;
   std::string pose_reference_frame_; 
@@ -925,7 +832,6 @@ private:
   ros::ServiceClient execute_service_;
   ros::ServiceClient query_service_;
   ros::ServiceClient cartesian_path_service_;
-  ros::ServiceClient planning_scene_service_;
   boost::scoped_ptr<moveit_warehouse::ConstraintsStorage> constraints_storage_;
   boost::scoped_ptr<boost::thread> constraints_init_thread_;
   bool initializing_constraints_;
@@ -1018,10 +924,15 @@ bool MoveGroup::place(const std::string &object, const std::vector<geometry_msgs
   return impl_->place(object, poses);
 }
 
+bool MoveGroup::place(const std::string &object, const geometry_msgs::PoseStamped &pose)
+{  
+  return impl_->place(object, std::vector<geometry_msgs::PoseStamped>(1, pose));
+}
+
 double MoveGroup::computeCartesianPath(const std::vector<geometry_msgs::Pose> &waypoints, double eef_step, double jump_threshold,
-				       moveit_msgs::RobotTrajectory &trajectory)
+				       moveit_msgs::RobotTrajectory &trajectory, bool avoid_collisions)
 {
-  return impl_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+  return impl_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory, avoid_collisions);
 }
 
 void MoveGroup::stop()
@@ -1042,7 +953,7 @@ void MoveGroup::setStartStateToCurrentState()
 void MoveGroup::setRandomTarget()
 { 
   impl_->getJointStateTarget()->setToRandomValues();
-  impl_->useJointStateTarget();
+  impl_->setTargetType(JOINT);
 }
 
 bool MoveGroup::setNamedTarget(const std::string &name)
@@ -1057,7 +968,7 @@ bool MoveGroup::setNamedTarget(const std::string &name)
   {
     if (impl_->getJointStateTarget()->setToDefaultState(name))
     {
-      impl_->useJointStateTarget();
+      impl_->setTargetType(JOINT);
       return true;
     }
     return false;
@@ -1067,13 +978,13 @@ bool MoveGroup::setNamedTarget(const std::string &name)
 void MoveGroup::setJointValueTarget(const std::vector<double> &joint_values)
 {
   impl_->getJointStateTarget()->setVariableValues(joint_values);
-  impl_->useJointStateTarget();
+  impl_->setTargetType(JOINT);
 }
 
 void MoveGroup::setJointValueTarget(const std::map<std::string, double> &joint_values)
 {
   impl_->getJointStateTarget()->setVariableValues(joint_values);
-  impl_->useJointStateTarget();
+  impl_->setTargetType(JOINT);
 }
 
 void MoveGroup::setJointValueTarget(const robot_state::RobotState &kinematic_state)
@@ -1105,13 +1016,13 @@ void MoveGroup::setJointValueTarget(const std::string &joint_name, const std::ve
   if (joint_state)
     if (!joint_state->setVariableValues(values))
       ROS_ERROR("Unable to set target");
-  impl_->useJointStateTarget();
+  impl_->setTargetType(JOINT);
 }
 
 void MoveGroup::setJointValueTarget(const sensor_msgs::JointState &state)
 {
   impl_->getJointStateTarget()->setVariableValues(state); 
-  impl_->useJointStateTarget();
+  impl_->setTargetType(JOINT);
 }
 
 const robot_state::JointStateGroup& MoveGroup::getJointValueTarget() const
@@ -1132,7 +1043,7 @@ const std::string& MoveGroup::getEndEffector() const
 void MoveGroup::setEndEffectorLink(const std::string &link_name)
 {
   impl_->setEndEffectorLink(link_name);  
-  impl_->usePoseTarget();
+  impl_->setTargetType(POSE);
 }
 
 void MoveGroup::setEndEffector(const std::string &eef_name)
@@ -1211,7 +1122,7 @@ void MoveGroup::setPoseTargets(const std::vector<geometry_msgs::PoseStamped> &ta
   else
   {
     impl_->setPoseTargets(target, end_effector_link);
-    impl_->usePoseTarget();
+    impl_->setTargetType(POSE);
   }
 }
 
@@ -1263,7 +1174,8 @@ void MoveGroup::setPositionTarget(double x, double y, double z, const std::strin
   target.pose.position.x = x;
   target.pose.position.y = y;
   target.pose.position.z = z;
-  setPoseTarget(target, end_effector_link);
+  setPoseTarget(target, end_effector_link); 
+  impl_->setTargetType(POSITION);
 }
 
 void MoveGroup::setRPYTarget(double r, double p, double y, const std::string &end_effector_link)
@@ -1284,6 +1196,7 @@ void MoveGroup::setRPYTarget(double r, double p, double y, const std::string &en
   
   tf::quaternionTFToMsg(tf::createQuaternionFromRPY(r, p, y), target.pose.orientation);
   setPoseTarget(target, end_effector_link);
+  impl_->setTargetType(ORIENTATION);
 }
 
 void MoveGroup::setOrientationTarget(double x, double y, double z, double w, const std::string &end_effector_link)
@@ -1306,7 +1219,8 @@ void MoveGroup::setOrientationTarget(double x, double y, double z, double w, con
   target.pose.orientation.y = y;
   target.pose.orientation.z = z;
   target.pose.orientation.w = w;
-  setPoseTarget(target, end_effector_link);
+  setPoseTarget(target, end_effector_link); 
+  impl_->setTargetType(ORIENTATION);
 }
 
 void MoveGroup::setPoseReferenceFrame(const std::string &pose_reference_frame)
@@ -1319,14 +1233,41 @@ const std::string& MoveGroup::getPoseReferenceFrame() const
   return impl_->getPoseReferenceFrame();
 }
 
-double MoveGroup::getGoalTolerance() const
-{
-  return impl_->getGoalTolerance();
+double MoveGroup::getGoalJointTolerance() const
+{  
+  return impl_->getGoalJointTolerance();
+}
+
+double MoveGroup::getGoalPositionTolerance() const
+{  
+  return impl_->getGoalPositionTolerance();   
+}
+
+double MoveGroup::getGoalOrientationTolerance() const
+{  
+  return impl_->getGoalOrientationTolerance();
 }
 
 void MoveGroup::setGoalTolerance(double tolerance)
 {
-  impl_->setGoalTolerance(tolerance);
+  setGoalJointTolerance(tolerance);
+  setGoalPositionTolerance(tolerance);
+  setGoalOrientationTolerance(tolerance);
+}
+
+void MoveGroup::setGoalJointTolerance(double tolerance)
+{ 
+  impl_->setGoalJointTolerance(tolerance);
+}
+
+void MoveGroup::setGoalPositionTolerance(double tolerance)
+{ 
+  impl_->setGoalPositionTolerance(tolerance);
+}
+
+void MoveGroup::setGoalOrientationTolerance(double tolerance)
+{ 
+  impl_->setGoalOrientationTolerance(tolerance);
 }
 
 void MoveGroup::rememberJointValues(const std::string &name)
@@ -1438,6 +1379,11 @@ const std::vector<std::string>& MoveGroup::getJoints() const
   return impl_->getJointStateTarget()->getJointModelGroup()->getJointModelNames();
 }
 
+unsigned int MoveGroup::getVariableCount() const
+{
+  return impl_->getJointStateTarget()->getJointModelGroup()->getVariableCount();
+}
+
 robot_state::RobotStatePtr MoveGroup::getCurrentState()
 {
   robot_state::RobotStatePtr current_state;
@@ -1520,14 +1466,5 @@ const std::string& MoveGroup::getPlanningFrame() const
   return impl_->getRobotModel()->getModelFrame();
 }
 
-std::vector<std::string> MoveGroup::getRecognizedObjectNames()
-{
-  return impl_->getRecognizedObjectNames();
 }
-
-std::vector<std::string> MoveGroup::getRecognizedObjectsInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz)
-{
-  return impl_->getRecognizedObjectsInROI(minx, miny, minz, maxx, maxy, maxz);
-}
-
 }
