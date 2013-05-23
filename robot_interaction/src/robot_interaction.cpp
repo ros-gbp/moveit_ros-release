@@ -27,12 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* Author: Ioan Sucan */
+/* Author: Ioan Sucan, Adam Leeper */
 
 #include <moveit/robot_interaction/robot_interaction.h>
 #include <moveit/robot_interaction/interactive_marker_helpers.h>
 #include <moveit/robot_state/transforms.h>
 #include <interactive_markers/interactive_marker_server.h>
+#include <interactive_markers/menu_handler.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf_conversions/tf_eigen.h>
 #include <boost/lexical_cast.hpp>
@@ -92,10 +93,22 @@ void RobotInteraction::InteractionHandler::setPoseOffset(const RobotInteraction:
   offset_map_[eef.eef_group] = m;
 }
 
+void RobotInteraction::InteractionHandler::setPoseOffset(const RobotInteraction::Joint& vj, const geometry_msgs::Pose& m)
+{
+  boost::mutex::scoped_lock slock(offset_map_lock_);
+  offset_map_[vj.joint_name] = m;
+}
+
 void RobotInteraction::InteractionHandler::clearPoseOffset(const RobotInteraction::EndEffector& eef)
 {
   boost::mutex::scoped_lock slock(offset_map_lock_);
   offset_map_.erase(eef.eef_group);
+}
+
+void RobotInteraction::InteractionHandler::clearPoseOffset(const RobotInteraction::Joint& vj)
+{
+  boost::mutex::scoped_lock slock(offset_map_lock_);
+  offset_map_.erase(vj.joint_name);
 }
 
 void RobotInteraction::InteractionHandler::clearPoseOffsets()
@@ -170,6 +183,20 @@ void RobotInteraction::InteractionHandler::clearLastMarkerPoses()
   pose_map_.clear();
 }
 
+void RobotInteraction::InteractionHandler::setMenuHandler(const boost::shared_ptr<interactive_markers::MenuHandler>& mh)
+{
+  menu_handler_ = mh;
+}
+
+const boost::shared_ptr<interactive_markers::MenuHandler>& RobotInteraction::InteractionHandler::getMenuHandler()
+{
+  return menu_handler_;
+}
+
+void RobotInteraction::InteractionHandler::clearMenuHandler()
+{
+  menu_handler_.reset();
+}
 
 robot_state::RobotStateConstPtr RobotInteraction::InteractionHandler::getState() const
 {
@@ -668,7 +695,7 @@ void RobotInteraction::addEndEffectorMarkers(const InteractionHandlerPtr &handle
   
   visualization_msgs::InteractiveMarkerControl m_control;
   m_control.always_visible = false;
-  m_control.interaction_mode = m_control.MOVE_ROTATE;
+  m_control.interaction_mode = m_control.MOVE_ROTATE_3D;
   
   std_msgs::ColorRGBA marker_color;
   const float *color = handler->inError(eef) ? END_EFFECTOR_UNREACHABLE_COLOR : END_EFFECTOR_REACHABLE_COLOR;
@@ -811,6 +838,10 @@ void RobotInteraction::addInteractiveMarkers(const InteractionHandlerPtr &handle
   {
     int_marker_server_->insert(ims[i]);
     int_marker_server_->setCallback(ims[i].name, boost::bind(&RobotInteraction::processInteractiveMarkerFeedback, this, _1));
+
+    // Add menu handler to all markers that this interaction handler creates.
+    if (boost::shared_ptr<interactive_markers::MenuHandler> mh = handler->getMenuHandler())
+      mh->apply(*int_marker_server_, ims[i].name);
   }
 }
 
