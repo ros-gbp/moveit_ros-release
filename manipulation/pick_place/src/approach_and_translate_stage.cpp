@@ -39,19 +39,59 @@
 #include <moveit/trajectory_processing/trajectory_tools.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <ros/console.h>
+#include <dynamic_reconfigure/server.h>
+#include <moveit_ros_manipulation/PickPlaceDynamicReconfigureConfig.h>
 
 namespace pick_place
 {
+
+namespace 
+{
+using namespace moveit_ros_manipulation;
+
+class DynamicReconfigureImpl
+{ 
+public:
+  
+  DynamicReconfigureImpl() : dynamic_reconfigure_server_(ros::NodeHandle("~/pick_place")),
+                             max_goal_count_(5),
+                             max_fail_(3),
+                             max_step_(0.02),
+                             jump_factor_(2.0)
+  {
+    dynamic_reconfigure_server_.setCallback(boost::bind(&DynamicReconfigureImpl::dynamicReconfigureCallback, this, _1, _2));
+  }
+  
+  unsigned int max_goal_count_;
+  unsigned int max_fail_;
+  double max_step_;
+  double jump_factor_;
+  
+private:
+  
+  void dynamicReconfigureCallback(PickPlaceDynamicReconfigureConfig &config, uint32_t level)
+  {   
+    max_goal_count_ = config.max_attempted_states_per_pose;
+    max_fail_ = config.max_consecutive_fail_attempts;
+    max_step_ = config.cartesian_motion_step_size;
+    jump_factor_ = config.jump_factor;
+  }
+  
+  dynamic_reconfigure::Server<PickPlaceDynamicReconfigureConfig> dynamic_reconfigure_server_;
+};
+
+static DynamicReconfigureImpl PICK_PLACE_PARAMS;
+}
 
 ApproachAndTranslateStage::ApproachAndTranslateStage(const planning_scene::PlanningSceneConstPtr &scene,
                                                      const collision_detection::AllowedCollisionMatrixConstPtr &collision_matrix) :
   ManipulationStage("approach & translate"),
   planning_scene_(scene),
   collision_matrix_(collision_matrix),
-  max_goal_count_(5),
-  max_fail_(3),
-  max_step_(0.02),
-  jump_factor_(2.0) /// \todo make these params
+  max_goal_count_(PICK_PLACE_PARAMS.max_goal_count_),
+  max_fail_(PICK_PLACE_PARAMS.max_fail_),
+  max_step_(PICK_PLACE_PARAMS.max_step_),
+  jump_factor_(PICK_PLACE_PARAMS.jump_factor_)
 {
 }
 
@@ -160,7 +200,7 @@ bool ApproachAndTranslateStage::evaluate(const ManipulationPlanPtr &plan) const
   const robot_model::JointModelGroup *jmg = planning_scene_->getRobotModel()->getJointModelGroup(plan->shared_data_->planning_group_);
   // compute what the maximum distance reported between any two states in the planning group could be, and keep 1% of that;
   // this is the minimum distance between sampled goal states
-  double min_distance = 0.01 * jmg->getMaximumExtent();
+  const double min_distance = 0.01 * jmg->getMaximumExtent();
 
   // convert approach direction and retreat direction to Eigen structures
   Eigen::Vector3d approach_direction, retreat_direction;
@@ -168,8 +208,8 @@ bool ApproachAndTranslateStage::evaluate(const ManipulationPlanPtr &plan) const
   tf::vectorMsgToEigen(plan->retreat_.direction.vector, retreat_direction);
 
   // if translation vectors are specified in the frame of the ik link name, then we assume the frame is local; otherwise, the frame is global
-  bool approach_direction_is_global_frame = !isEqualFrameLink( plan->approach_.direction.header.frame_id, plan->shared_data_->ik_link_name_ );
-  bool retreat_direction_is_global_frame  = !isEqualFrameLink( plan->retreat_.direction.header.frame_id,  plan->shared_data_->ik_link_name_ );
+  bool approach_direction_is_global_frame = !isEqualFrameLink(plan->approach_.direction.header.frame_id, plan->shared_data_->ik_link_name_);
+  bool retreat_direction_is_global_frame  = !isEqualFrameLink(plan->retreat_.direction.header.frame_id,  plan->shared_data_->ik_link_name_);
 
   // transform the input vectors in accordance to frame specified in the header;
   if (approach_direction_is_global_frame)
@@ -180,13 +220,29 @@ bool ApproachAndTranslateStage::evaluate(const ManipulationPlanPtr &plan) const
   // state validity checking during the approach must ensure that the gripper posture is that for pre-grasping
   robot_state::StateValidityCallbackFn approach_validCallback = boost::bind(&isStateCollisionFree, planning_scene_.get(),
                                                                             collision_matrix_.get(), &plan->approach_posture_, _1, _2);
-
+  std::size_t attempted_possible_goal_states = 0;
   do
   {
-    for (std::size_t i = 0 ; i < plan->possible_goal_states_.size() && !signal_stop_ ; ++i)
+    for (std::size_t i = attempted_possible_goal_states ; i < plan->possible_goal_states_.size() && !signal_stop_ ; ++i, ++attempted_possible_goal_states)
     {
+      // if we are trying to get as close as possible to the goal
+      if (plan->shared_data_->minimize_object_distance_)
+      {     
+        robot_state::RobotStatePtr close_up_state(new robot_state::RobotState(*plan->possible_goal_states_[i]));
+        std::vector<robot_state::RobotStatePtr> close_up_states;
+        double d_close_up = close_up_state->getJointStateGroup(plan->shared_data_->planning_group_)->
+          computeCartesianPath(close_up_states, plan->shared_data_->ik_link_name_,
+                               approach_direction, approach_direction_is_global_frame, std::numeric_limits<double>::infinity(),
+                               max_step_, jump_factor_, approach_validCallback);
+        ROS_ERROR("close up = %lf", d_close_up);
+        // if progress towards the object was made, update the desired goal state
+        if (d_close_up > 0.0 && close_up_states.size() > 1)
+          *plan->possible_goal_states_[i]  = *close_up_states[close_up_states.size() - 2];
+      }
+      
       // try to compute a straight line path that arrives at the goal using the specified approach direction
       robot_state::RobotStatePtr first_approach_state(new robot_state::RobotState(*plan->possible_goal_states_[i]));
+
       std::vector<robot_state::RobotStatePtr> approach_states;
       double d_approach = first_approach_state->getJointStateGroup(plan->shared_data_->planning_group_)->
         computeCartesianPath(approach_states, plan->shared_data_->ik_link_name_,
