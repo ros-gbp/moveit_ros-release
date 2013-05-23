@@ -38,7 +38,9 @@
 #include <string>
 #include <vector>
 
-namespace moveit_py_bindings_tools
+namespace moveit
+{
+namespace py_bindings_tools
 {
 
 template<typename T>
@@ -81,5 +83,7 @@ boost::python::list listFromString(const std::vector<std::string>& v)
 }
 
 }
+}
+
 
 #endif
