@@ -88,7 +88,12 @@ public:
   {
     rememberJointValues(string, py_bindings_tools::doubleFromList(values));
   }
-
+  
+  const char* getPlanningFrameCStr() const
+  {
+    return getPlanningFrame().c_str();
+  }
+  
   bp::list getJointsList() const
   {
     return py_bindings_tools::listFromString(getJoints());
@@ -265,11 +270,6 @@ public:
     return getName().c_str();
   }
 
-  const char* getPlanningFrameCStr() const
-  {
-    return getPlanningFrame().c_str();
-  }
-
   bool executePython(bp::dict &plan_dict)
   {
     MoveGroup::Plan plan;
@@ -388,6 +388,8 @@ static void wrap_move_group_interface()
   MoveGroupClass.def("stop", &MoveGroupWrapper::stop);
 
   MoveGroupClass.def("get_name", &MoveGroupWrapper::getNameCStr);
+  MoveGroupClass.def("get_planning_frame", &MoveGroupWrapper::getPlanningFrameCStr);
+  
   MoveGroupClass.def("get_joints", &MoveGroupWrapper::getJointsList);
   MoveGroupClass.def("get_variable_count", &MoveGroupWrapper::getVariableCount);
   MoveGroupClass.def("allow_looking", &MoveGroupWrapper::allowLooking);
@@ -461,8 +463,6 @@ static void wrap_move_group_interface()
   MoveGroupClass.def("compute_plan", &MoveGroupWrapper::getPlanPythonDict);
   MoveGroupClass.def("compute_cartesian_path", &MoveGroupWrapper::computeCartesianPathPython);
   MoveGroupClass.def("set_support_surface_name", &MoveGroupWrapper::setSupportSurfaceName);
-
-  MoveGroupClass.def("get_planning_frame", &MoveGroupWrapper::getPlanningFrameCStr);
 }
 
 }
