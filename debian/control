@@ -1,0 +1,12 @@
+Source: ros-groovy-moveit-ros-move-group
+Section: misc
+Priority: extra
+Maintainer: "Ioan Sucan <isucan@willowgarage.com>"
+Build-Depends: debhelper (>= 7.0.50~), ros-groovy-actionlib, ros-groovy-catkin, ros-groovy-moveit-core, ros-groovy-moveit-ros-planning, ros-groovy-pluginlib, ros-groovy-tf
+Homepage: http://moveit.ros.org
+Standards-Version: 3.9.2
+
+Package: ros-groovy-moveit-ros-move-group
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-groovy-actionlib, ros-groovy-moveit-core, ros-groovy-moveit-ros-planning, ros-groovy-pluginlib, ros-groovy-tf
+Description: The move_group node for MoveIt
