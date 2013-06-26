@@ -48,9 +48,10 @@
 #include <boost/shared_ptr.hpp>
 #include <tf/tf.h>
 
-/** \brief Simple interface to the MoveGroup action */
 namespace moveit
 {
+
+/** \brief Simple interface to MoveIt! components */
 namespace planning_interface
 {
 
@@ -108,9 +109,6 @@ public:
   
   /** \brief Get the name of the group this instance operates on */
   const std::string& getName() const;
-
-  /** \brief Get the name of the root link of the robot */
-  const std::string& getRobotRootLink() const;
 
   /** \brief Get the name of the frame in which the robot is planning */
   const std::string& getPlanningFrame() const;
