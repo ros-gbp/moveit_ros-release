@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   LIBRARIES
+    moveit_move_group_capabilities_base
   INCLUDE_DIRS
     include
   CATKIN_DEPENDS
@@ -25,7 +26,6 @@ catkin_package(
 )
 
 include_directories(include)
-include_directories(sec/default_capabilities)
 include_directories(${catkin_INCLUDE_DIRS})
 include_directories(SYSTEM
                     ${Boost_INCLUDE_DIRS}
@@ -34,11 +34,12 @@ include_directories(SYSTEM
 link_directories(${Boost_LIBRARY_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
-add_executable(move_group
+add_library(moveit_move_group_capabilities_base
   src/move_group_context.cpp
   src/move_group_capability.cpp
-  src/move_group.cpp
-)
+  )
+
+add_executable(move_group src/move_group.cpp)
 
 add_executable(list_move_group_capabilities src/list_capabilities.cpp)
 
@@ -53,11 +54,12 @@ add_library(moveit_move_group_default_capabilities
   src/default_capabilities/get_planning_scene_service_capability.cpp
   )
 
-target_link_libraries(move_group ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-target_link_libraries(moveit_move_group_default_capabilities ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+target_link_libraries(move_group moveit_move_group_capabilities_base ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(moveit_move_group_default_capabilities moveit_move_group_capabilities_base ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 target_link_libraries(list_move_group_capabilities ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-install(TARGETS move_group list_move_group_capabilities moveit_move_group_default_capabilities
+install(TARGETS move_group list_move_group_capabilities moveit_move_group_capabilities_base moveit_move_group_default_capabilities
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
