@@ -1,0 +1,20 @@
+ros-groovy-moveit-ros-move-group (0.4.6-0precise) precise; urgency=high
+
+  * white space fixes (tabs are now spaces)
+  * port to new base class for planning_interface (using planning contexts)
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 17 Jul 2013 22:00:00 -0000
+
+ros-groovy-moveit-ros-move-group (0.4.5-0precise) precise; urgency=high
+
+  * Fixed for moveit_msgs/JointLimits.h no such file or directory
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 02 Jul 2013 22:00:00 -0000
+
+ros-groovy-moveit-ros-move-group (0.4.4-0precise) precise; urgency=high
+
+  * fix #259 <https://github.com/ros-planning/moveit_ros/issues/259> and #260 <https://github.com/ros-planning/moveit_ros/issues/260>
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 25 Jun 2013 22:00:00 -0000
+
+
