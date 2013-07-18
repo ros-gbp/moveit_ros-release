@@ -1,0 +1,19 @@
+ros-groovy-moveit-ros-planning-interface (0.4.6-0quantal) quantal; urgency=high
+
+  * white space fixes (tabs are now spaces)
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 17 Jul 2013 22:00:00 -0000
+
+ros-groovy-moveit-ros-planning-interface (0.4.5-0quantal) quantal; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 02 Jul 2013 22:00:00 -0000
+
+ros-groovy-moveit-ros-planning-interface (0.4.4-0quantal) quantal; urgency=high
+
+  * some refactoring
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 25 Jun 2013 22:00:00 -0000
+
+

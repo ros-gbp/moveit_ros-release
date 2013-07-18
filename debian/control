@@ -1,0 +1,12 @@
+Source: ros-groovy-moveit-ros-planning-interface
+Section: misc
+Priority: extra
+Maintainer: "Ioan Sucan <isucan@willowgarage.com>"
+Build-Depends: debhelper (>= 7.0.50~), python-catkin-pkg, python-dev, ros-groovy-actionlib, ros-groovy-catkin, ros-groovy-eigen-conversions, ros-groovy-moveit-ros-manipulation, ros-groovy-moveit-ros-move-group, ros-groovy-moveit-ros-planning, ros-groovy-moveit-ros-warehouse, ros-groovy-rosconsole, ros-groovy-roscpp, ros-groovy-rospy, ros-groovy-tf, ros-groovy-tf-conversions
+Homepage: http://moveit.ros.org
+Standards-Version: 3.9.2
+
+Package: ros-groovy-moveit-ros-planning-interface
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-dev, ros-groovy-actionlib, ros-groovy-eigen-conversions, ros-groovy-moveit-ros-manipulation, ros-groovy-moveit-ros-move-group, ros-groovy-moveit-ros-planning, ros-groovy-moveit-ros-warehouse, ros-groovy-rosconsole, ros-groovy-roscpp, ros-groovy-rospy, ros-groovy-tf, ros-groovy-tf-conversions
+Description: Components of MoveIt that offer simpler interfaces to planning and execution
