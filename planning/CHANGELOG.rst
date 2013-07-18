@@ -2,18 +2,9 @@
 Changelog for package moveit_ros_planning
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.5.2 (2013-07-15)
+0.4.6 (2013-07-18)
 ------------------
-
-0.5.1 (2013-07-14)
-------------------
-
-0.5.0 (2013-07-12)
-------------------
-* minor doc fixes
 * add docs for planning pipeline
-* cleanup build system
-* fixing approximate ik calculation
 * white space fixes (tabs are now spaces)
 * adding check for approximate solution flag
 * adding options struct to kinematics base

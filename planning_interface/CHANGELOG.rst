@@ -2,14 +2,7 @@
 Changelog for package moveit_ros_planning_interface
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.5.2 (2013-07-15)
-------------------
-* move msgs to common_msgs
-
-0.5.1 (2013-07-14)
-------------------
-
-0.5.0 (2013-07-12)
+0.4.6 (2013-07-18)
 ------------------
 * white space fixes (tabs are now spaces)
 
