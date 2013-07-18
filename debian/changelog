@@ -1,0 +1,20 @@
+ros-groovy-moveit-ros-benchmarks-gui (0.4.6-0oneiric) oneiric; urgency=high
+
+  * white space fixes (tabs are now spaces)
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 17 Jul 2013 22:00:00 -0000
+
+ros-groovy-moveit-ros-benchmarks-gui (0.4.5-0oneiric) oneiric; urgency=high
+
+  * More advanced parameter sweeping implmented, workspace bounds added
+  * Added parameter sweeping to benchmarking
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 02 Jul 2013 22:00:00 -0000
+
+ros-groovy-moveit-ros-benchmarks-gui (0.4.4-0oneiric) oneiric; urgency=high
+
+  * waits until the planning scene monitor has been created when loading a robot
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 25 Jun 2013 22:00:00 -0000
+
+
