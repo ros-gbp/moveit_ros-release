@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2011, Willow Garage, Inc.
+ *  Copyright (c) 2013, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,74 +32,80 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Jon Binney, Ioan Sucan */
+/* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PERCEPTION_POINTCLOUD_OCTOMAP_UPDATER_
-#define MOVEIT_PERCEPTION_POINTCLOUD_OCTOMAP_UPDATER_
+#ifndef MOVEIT_OCCUPANCY_MAP_DEPTH_IMAGE_OCCUPANCY_MAP_UPDATER_
+#define MOVEIT_OCCUPANCY_MAP_DEPTH_IMAGE_OCCUPANCY_MAP_UPDATER_
 
 #include <ros/ros.h>
 #include <tf/tf.h>
-#include <tf/message_filter.h>
-#include <message_filters/subscriber.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <moveit/occupancy_map_monitor/occupancy_map_updater.h>
-#include <moveit/point_containment_filter/shape_mask.h>
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
+#include <moveit/mesh_filter/mesh_filter.h>
+#include <moveit/mesh_filter/stereo_camera_model.h>
+#include <moveit/depth_image_octomap_updater/lazy_free_space_updater.h>
+#include <image_transport/image_transport.h>
+#include <boost/scoped_ptr.hpp>
 
 namespace occupancy_map_monitor
 {
-
-class PointCloudOctomapUpdater : public OccupancyMapUpdater
+class DepthImageOctomapUpdater : public OccupancyMapUpdater
 {
 public:
 
-  PointCloudOctomapUpdater();
-  virtual ~PointCloudOctomapUpdater();
+  DepthImageOctomapUpdater();
+  virtual ~DepthImageOctomapUpdater();
 
   virtual bool setParams(XmlRpc::XmlRpcValue &params);
-
   virtual bool initialize();
   virtual void start();
   virtual void stop();
   virtual ShapeHandle excludeShape(const shapes::ShapeConstPtr &shape);
   virtual void forgetShape(ShapeHandle handle);
 
-protected:
-
-  virtual void updateMask(const pcl::PointCloud<pcl::PointXYZ> &cloud, const Eigen::Vector3d &sensor_origin, std::vector<int> &mask);
-
 private:
 
-  bool getShapeTransform(ShapeHandle h, Eigen::Affine3d &transform) const;
-  void cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg);
+  void depthImageCallback(const sensor_msgs::ImageConstPtr& depth_msg, const sensor_msgs::CameraInfoConstPtr& info_msg);
+  bool getShapeTransform(mesh_filter::MeshHandle h, Eigen::Affine3d &transform) const;
   void stopHelper();
 
-  ros::NodeHandle root_nh_;
-  ros::NodeHandle private_nh_;
+  ros::NodeHandle nh_;
   boost::shared_ptr<tf::Transformer> tf_;
+  image_transport::ImageTransport input_depth_transport_;
+  image_transport::ImageTransport model_depth_transport_;
+  image_transport::ImageTransport filtered_depth_transport_;
+  image_transport::ImageTransport filtered_label_transport_;
 
-  /* params */
-  std::string point_cloud_topic_;
-  double scale_;
-  double padding_;
-  double max_range_;
-  unsigned int point_subsample_;
+  image_transport::CameraSubscriber sub_depth_image_;
+  image_transport::CameraPublisher pub_model_depth_image_;
+  image_transport::CameraPublisher pub_filtered_depth_image_;
+  image_transport::CameraPublisher pub_filtered_label_image_;
+
   std::string filtered_cloud_topic_;
-  ros::Publisher filtered_cloud_publisher_;
+  std::string sensor_type_;
+  std::string image_topic_;
+  std::size_t queue_size_;
+  double near_clipping_plane_distance_;
+  double far_clipping_plane_distance_;
+  double shadow_threshold_;
+  double padding_scale_;
+  double padding_offset_;
+  unsigned int skip_vertical_pixels_;
+  unsigned int skip_horizontal_pixels_;
 
-  message_filters::Subscriber<sensor_msgs::PointCloud2> *point_cloud_subscriber_;
-  tf::MessageFilter<sensor_msgs::PointCloud2> *point_cloud_filter_;
+  unsigned int image_callback_count_;
+  double average_callback_dt_;
+  unsigned int good_tf_;
+  unsigned int failed_tf_;
 
-  /* used to store all cells in the map which a given ray passes through during raycasting.
-     we cache this here because it dynamically pre-allocates a lot of memory in its contsructor */
-  octomap::KeyRay key_ray_;
+  boost::scoped_ptr<mesh_filter::MeshFilter<mesh_filter::StereoCameraModel> > mesh_filter_;
+  boost::scoped_ptr<LazyFreeSpaceUpdater> free_space_updater_;
 
-  boost::scoped_ptr<point_containment_filter::ShapeMask> shape_mask_;
-  std::vector<int> mask_;
+  std::vector<float> x_cache_, y_cache_;
+  double inv_fx_, inv_fy_, K0_, K2_, K4_, K5_;
+  std::vector<unsigned int> filtered_labels_;
+  ros::WallTime last_depth_callback_start_;
 
 };
-
 }
 
 #endif
