@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2011, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,47 +32,9 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Jon Binney, Ioan Sucan */
+/* Author: Ioan Sucan */
 
-#include <boost/shared_ptr.hpp>
-#include <ros/ros.h>
-#include <tf/tf.h>
-#include <tf/transform_listener.h>
-#include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
-#include <octomap_msgs/conversions.h>
+#include <class_loader/class_loader.h>
+#include <moveit/depth_image_octomap_updater/depth_image_octomap_updater.h>
 
-static void publishOctomap(ros::Publisher *octree_binary_pub, occupancy_map_monitor::OccupancyMapMonitor *server)
-{
-  octomap_msgs::Octomap map;
-
-  map.header.frame_id = server->getMapFrame();
-  map.header.stamp = ros::Time::now();
-
-  server->getOcTreePtr()->lockRead();
-  try
-  {
-    if (!octomap_msgs::binaryMapToMsgData(*server->getOcTreePtr(), map.data))
-      ROS_ERROR_THROTTLE(1, "Could not generate OctoMap message");
-  }
-  catch(...)
-  {
-    ROS_ERROR_THROTTLE(1, "Exception thrown while generating OctoMap message");
-  }
-  server->getOcTreePtr()->unlockRead();
-
-  octree_binary_pub->publish(map);
-}
-
-int main(int argc, char **argv)
-{
-  ros::init(argc, argv, "occupancy_map_server");
-  ros::NodeHandle nh;
-  ros::Publisher octree_binary_pub = nh.advertise<octomap_msgs::Octomap>("octomap_binary", 1);
-  boost::shared_ptr<tf::Transformer> listener = boost::make_shared<tf::TransformListener>(ros::Duration(5.0));
-  occupancy_map_monitor::OccupancyMapMonitor server(listener);
-  server.setUpdateCallback(boost::bind(&publishOctomap, &octree_binary_pub, &server));
-  server.startMonitor();
-
-  ros::spin();
-  return 0;
-}
+CLASS_LOADER_REGISTER_CLASS(occupancy_map_monitor::DepthImageOctomapUpdater, occupancy_map_monitor::OccupancyMapUpdater);
