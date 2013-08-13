@@ -2,9 +2,25 @@
 Changelog for package moveit_ros_planning
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.4.6 (2013-07-18)
+Forthcoming
+-----------
+* remove CollisionMap, expose topic names in PlanningSceneMonitor, implement detach / attach operations as requested by `#280 <https://github.com/ros-planning/moveit_ros/issues/280>`_
+* make headers and author definitions aligned the same way; white space fixes
+* move background_processing lib to core
+* add option to disable trajectory monitoring
+
+0.5.2 (2013-07-15)
 ------------------
+
+0.5.1 (2013-07-14)
+------------------
+
+0.5.0 (2013-07-12)
+------------------
+* minor doc fixes
 * add docs for planning pipeline
+* cleanup build system
+* fixing approximate ik calculation
 * white space fixes (tabs are now spaces)
 * adding check for approximate solution flag
 * adding options struct to kinematics base

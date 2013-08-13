@@ -2,7 +2,24 @@
 Changelog for package moveit_ros_benchmarks_gui
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.4.6 (2013-07-18)
+Forthcoming
+-----------
+* allow creating goals uniformly distributed in a bounding box
+* Duplicate goals with Ctrl-D instead of Ctrl-C
+* better error checking
+* adding the possibility to select planners, nb of runs and timeout from the GUI
+* allow the user to modify start and goal regex before starting benchmark
+* Allow user to start the benchmark pipeline from the GUI
+* make headers and author definitions aligned the same way; white space fixes
+* move background_processing lib to core
+
+0.5.2 (2013-07-15)
+------------------
+
+0.5.1 (2013-07-14)
+------------------
+
+0.5.0 (2013-07-12)
 ------------------
 * white space fixes (tabs are now spaces)
 
