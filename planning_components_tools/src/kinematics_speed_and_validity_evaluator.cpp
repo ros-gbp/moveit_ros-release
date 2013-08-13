@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2013, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2013, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 
@@ -84,34 +84,34 @@ int main(int argc, char **argv)
 
     ROS_INFO("Running %u tests", test_count);
 
-    moveit::Profiler::Start();
+    moveit::tools::Profiler::Start();
     for (int i = 0 ; i < test_count ; ++i)
     {
       jsg->setToRandomValues();
       Eigen::Affine3d pose = state.getLinkState(tip)->getGlobalLinkTransform();
       jsg->setToRandomValues();
-      moveit::Profiler::Begin("IK");
+      moveit::tools::Profiler::Begin("IK");
       jsg->setFromIK(pose);
-      moveit::Profiler::End("IK");
+      moveit::tools::Profiler::End("IK");
       const Eigen::Affine3d &pose_upd = state.getLinkState(tip)->getGlobalLinkTransform();
       Eigen::Affine3d diff = pose_upd * pose.inverse();
       double rot_err = (diff.rotation() - Eigen::Matrix3d::Identity()).norm();
       double trans_err = diff.translation().norm();
-      moveit::Profiler::Average("Rotation error", rot_err);
-      moveit::Profiler::Average("Translation error", trans_err);
+      moveit::tools::Profiler::Average("Rotation error", rot_err);
+      moveit::tools::Profiler::Average("Translation error", trans_err);
       if (rot_err < 1e-3 && trans_err < 1e-3)
       {
-        moveit::Profiler::Event("Valid IK");
-        moveit::Profiler::Average("Success Rate", 100);
+        moveit::tools::Profiler::Event("Valid IK");
+        moveit::tools::Profiler::Average("Success Rate", 100);
       }
       else
       {
-        moveit::Profiler::Event("Invalid IK");
-        moveit::Profiler::Average("Success Rate", 0);
+        moveit::tools::Profiler::Event("Invalid IK");
+        moveit::tools::Profiler::Average("Success Rate", 0);
       }
     }
-    moveit::Profiler::Stop();
-    moveit::Profiler::Status();
+    moveit::tools::Profiler::Stop();
+    moveit::tools::Profiler::Status();
       }
       else
     ROS_ERROR_STREAM("No kinematics solver specified for group " << group);
