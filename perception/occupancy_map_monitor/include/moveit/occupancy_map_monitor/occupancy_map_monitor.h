@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of the Willow Garage nor the names of its
+ *   * Neither the name of Willow Garage nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -117,6 +117,11 @@ public:
 
   void publishDebugInformation(bool flag);
 
+  bool isActive() const
+  {
+    return active_;
+  }
+
 private:
 
   void initialize();
@@ -149,6 +154,9 @@ private:
   ros::NodeHandle nh_;
   ros::ServiceServer save_map_srv_;
   ros::ServiceServer load_map_srv_;
+
+  bool active_;
+
 };
 
 }

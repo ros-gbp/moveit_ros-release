@@ -38,11 +38,12 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
-qt4_wrap_cpp(MOC_FILES include/main_window.h include/trajectory.h)
+qt4_wrap_cpp(MOC_FILES include/main_window.h include/trajectory.h include/benchmark_processing_thread.h)
 qt4_wrap_ui(UIC_FILES
   src/ui/main_window.ui
   src/ui/run_benchmark_dialog.ui
   src/ui/robot_loader.ui
+  src/ui/bounding_box_goals.ui
 )
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -54,6 +55,7 @@ set(SOURCES
   src/main.cpp
   src/main_window.cpp
   src/job_processing.cpp
+  src/benchmark_processing_thread.cpp
   src/ui_utils.cpp
   src/frame_marker.cpp
   src/trajectory.cpp
