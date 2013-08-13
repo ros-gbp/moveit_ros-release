@@ -1,41 +1,51 @@
-/*
- * Copyright (c) 2012, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
  *
- * Author: Mario Prats, Ioan Sucan
- */
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
+
+/* Author: Mario Prats, Ioan Sucan */
 
 #include <main_window.h>
 #include <job_processing.h>
+#include <benchmark_processing_thread.h>
 
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/robot_state/conversions.h>
 #include <moveit/warehouse/constraints_storage.h>
 #include <moveit/warehouse/state_storage.h>
+#include <moveit/benchmarks/benchmark_execution.h>
+#include <moveit/planning_interface/planning_interface.h>
+
+#include <pluginlib/class_loader.h>
 
 #include <rviz/display_context.h>
 #include <rviz/window_manager_interface.h>
@@ -45,12 +55,73 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QFileDialog>
-
+#include <QProgressDialog>
 
 #include <boost/math/constants/constants.hpp>
 
 namespace benchmark_tool
 {
+
+
+void MainWindow::createGoalAtPose(const std::string &name, const Eigen::Affine3d &pose)
+{
+  goals_initial_pose_.insert(std::pair<std::string, Eigen::Affine3d>(name, pose));
+
+  geometry_msgs::Pose marker_pose;
+  tf::poseEigenToMsg(pose * goal_offset_, marker_pose);
+  static const float marker_scale = 0.15;
+
+  GripperMarkerPtr goal_pose(new GripperMarker(scene_display_->getPlanningSceneRO()->getCurrentState(), scene_display_->getSceneNode(), visualization_manager_, name, scene_display_->getRobotModel()->getModelFrame(),
+                                               robot_interaction_->getActiveEndEffectors()[0], marker_pose, marker_scale, GripperMarker::NOT_TESTED));
+  goal_poses_.insert(GoalPosePair(name,  goal_pose));
+
+  // Connect signals
+  goal_pose->connect(this, SLOT( goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback &) ));
+
+  //If connected to a database, store the constraint
+  if (constraints_storage_)
+  {
+    moveit_msgs::Constraints c;
+    c.name = name;
+
+    shape_msgs::SolidPrimitive sp;
+    sp.type = sp.BOX;
+    sp.dimensions.resize(3, std::numeric_limits<float>::epsilon() * 10.0);
+
+    moveit_msgs::PositionConstraint pc;
+    pc.constraint_region.primitives.push_back(sp);
+    geometry_msgs::Pose posemsg;
+    posemsg.position.x = goal_pose->imarker->getPosition().x;
+    posemsg.position.y = goal_pose->imarker->getPosition().y;
+    posemsg.position.z = goal_pose->imarker->getPosition().z;
+    posemsg.orientation.x = 0.0;
+    posemsg.orientation.y = 0.0;
+    posemsg.orientation.z = 0.0;
+    posemsg.orientation.w = 1.0;
+    pc.constraint_region.primitive_poses.push_back(posemsg);
+    pc.weight = 1.0;
+    c.position_constraints.push_back(pc);
+
+    moveit_msgs::OrientationConstraint oc;
+    oc.orientation.x = goal_pose->imarker->getOrientation().x;
+    oc.orientation.y = goal_pose->imarker->getOrientation().y;
+    oc.orientation.z = goal_pose->imarker->getOrientation().z;
+    oc.orientation.w = goal_pose->imarker->getOrientation().w;
+    oc.absolute_x_axis_tolerance = oc.absolute_y_axis_tolerance =
+        oc.absolute_z_axis_tolerance = std::numeric_limits<float>::epsilon() * 10.0;
+    oc.weight = 1.0;
+    c.orientation_constraints.push_back(oc);
+
+    try
+    {
+      constraints_storage_->addConstraints(c);
+    }
+    catch (std::runtime_error &ex)
+    {
+      ROS_ERROR("Cannot save constraint on database: %s", ex.what());
+    }
+  }
+}
 
 void MainWindow::createGoalPoseButtonClicked(void)
 {
@@ -86,67 +157,64 @@ void MainWindow::createGoalPoseButtonClicked(void)
       {
         //Create the new goal pose at the current eef pose, and attach an interactive marker to it
         Eigen::Affine3d tip_pose = scene_display_->getPlanningSceneRO()->getCurrentState().getLinkState(robot_interaction_->getActiveEndEffectors()[0].parent_link)->getGlobalLinkTransform();
-        goals_initial_pose_.insert(std::pair<std::string, Eigen::Affine3d>(name, tip_pose));
-
-        geometry_msgs::Pose marker_pose;
-        tf::poseEigenToMsg(tip_pose * goal_offset_, marker_pose);
-        static const float marker_scale = 0.15;
-
-        GripperMarkerPtr goal_pose(new GripperMarker(scene_display_->getPlanningSceneRO()->getCurrentState(), scene_display_->getSceneNode(), visualization_manager_, name, scene_display_->getRobotModel()->getModelFrame(),
-                                robot_interaction_->getActiveEndEffectors()[0], marker_pose, marker_scale, GripperMarker::NOT_TESTED));
-        goal_poses_.insert(GoalPosePair(name,  goal_pose));
-
-        // Connect signals
-        goal_pose->connect(this, SLOT( goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback &) ));
-
-        //If connected to a database, store the constraint
-        if (constraints_storage_)
-        {
-          moveit_msgs::Constraints c;
-          c.name = name;
-
-          shape_msgs::SolidPrimitive sp;
-          sp.type = sp.BOX;
-          sp.dimensions.resize(3, std::numeric_limits<float>::epsilon() * 10.0);
-
-          moveit_msgs::PositionConstraint pc;
-          pc.constraint_region.primitives.push_back(sp);
-          geometry_msgs::Pose posemsg;
-          posemsg.position.x = goal_pose->imarker->getPosition().x;
-          posemsg.position.y = goal_pose->imarker->getPosition().y;
-          posemsg.position.z = goal_pose->imarker->getPosition().z;
-          posemsg.orientation.x = 0.0;
-          posemsg.orientation.y = 0.0;
-          posemsg.orientation.z = 0.0;
-          posemsg.orientation.w = 1.0;
-          pc.constraint_region.primitive_poses.push_back(posemsg);
-          pc.weight = 1.0;
-          c.position_constraints.push_back(pc);
-
-          moveit_msgs::OrientationConstraint oc;
-          oc.orientation.x = goal_pose->imarker->getOrientation().x;
-          oc.orientation.y = goal_pose->imarker->getOrientation().y;
-          oc.orientation.z = goal_pose->imarker->getOrientation().z;
-          oc.orientation.w = goal_pose->imarker->getOrientation().w;
-          oc.absolute_x_axis_tolerance = oc.absolute_y_axis_tolerance =
-            oc.absolute_z_axis_tolerance = std::numeric_limits<float>::epsilon() * 10.0;
-          oc.weight = 1.0;
-          c.orientation_constraints.push_back(oc);
-
-          try
-          {
-            constraints_storage_->addConstraints(c);
-          }
-          catch (std::runtime_error &ex)
-          {
-            ROS_ERROR("Cannot save constraint on database: %s", ex.what());
-          }
-        }
+        createGoalAtPose(name, tip_pose);
       }
     }
     else
       QMessageBox::warning(this, "Goal not created", "Cannot use an empty name for a new goal pose.");
   }
+
+  populateGoalPosesList();
+}
+
+void MainWindow::showBBoxGoalsDialog()
+{
+  std::string goals_base_name;
+  {
+    const planning_scene_monitor::LockedPlanningSceneRO &ps = scene_display_->getPlanningSceneRO();
+    if ( ! ps || robot_interaction_->getActiveEndEffectors().empty() )
+    {
+      if ( ! ps ) ROS_ERROR("No planning scene");
+      if ( robot_interaction_->getActiveEndEffectors().empty() ) ROS_ERROR("No end effector");
+      return;
+    }
+    goals_base_name = ps->getName() + "_pose_";
+  }
+
+  bbox_dialog_ui_.base_name_text->setText(QString(goals_base_name.c_str()));
+
+  bbox_dialog_->exec();
+}
+
+void MainWindow::createBBoxGoalsButtonClicked(void)
+{
+  bbox_dialog_->close();
+
+  double minx = bbox_dialog_ui_.center_x_text->text().toDouble() - bbox_dialog_ui_.size_x_text->text().toDouble() / 2.0;
+  double maxx = bbox_dialog_ui_.center_x_text->text().toDouble() + bbox_dialog_ui_.size_x_text->text().toDouble() / 2.0;
+  double stepx = (maxx - minx) / std::max<double>(bbox_dialog_ui_.ngoals_x_text->text().toDouble() - 1, 1);
+  double miny = bbox_dialog_ui_.center_y_text->text().toDouble() - bbox_dialog_ui_.size_y_text->text().toDouble() / 2.0;
+  double maxy = bbox_dialog_ui_.center_y_text->text().toDouble() + bbox_dialog_ui_.size_y_text->text().toDouble() / 2.0;
+  double stepy = (maxy - miny) / std::max<double>(bbox_dialog_ui_.ngoals_y_text->text().toDouble() - 1, 1);
+  double minz = bbox_dialog_ui_.center_z_text->text().toDouble() - bbox_dialog_ui_.size_z_text->text().toDouble() / 2.0;
+  double maxz = bbox_dialog_ui_.center_z_text->text().toDouble() + bbox_dialog_ui_.size_z_text->text().toDouble() / 2.0;
+  double stepz = (maxz - minz) / std::max<double>(bbox_dialog_ui_.ngoals_z_text->text().toDouble() - 1, 1);
+
+  Eigen::Affine3d goal_pose;
+  goal_pose.setIdentity();
+  for (std::size_t x = 0; x < bbox_dialog_ui_.ngoals_x_text->text().toShort(); ++x)
+    for (std::size_t y = 0; y < bbox_dialog_ui_.ngoals_y_text->text().toShort(); ++y)
+      for (std::size_t z = 0; z < bbox_dialog_ui_.ngoals_z_text->text().toShort(); ++z)
+      {
+        goal_pose(0,3) = minx + x * stepx;
+        goal_pose(1,3) = miny + y * stepy;
+        goal_pose(2,3) = minz + z * stepz;
+
+        std::stringstream ss;
+        ss << bbox_dialog_ui_.base_name_text->text().toStdString() << std::setfill('0') << std::setw(4) << goal_poses_.size();
+
+        createGoalAtPose(ss.str(), goal_pose);
+      }
 
   populateGoalPosesList();
 }
@@ -852,19 +920,67 @@ void MainWindow::startStateItemDoubleClicked(QListWidgetItem * item)
 
 void MainWindow::runBenchmark(void)
 {
-  QDialog *dialog = new QDialog(0,0);
-
-  run_benchmark_ui_.setupUi(dialog);
-  run_benchmark_ui_.benchmark_select_folder_button->setIcon(QIcon::fromTheme("document-open", QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon)));
-  connect( run_benchmark_ui_.benchmark_button_box, SIGNAL( accepted( ) ), this, SLOT( runBenchmarkOKButtonClicked( ) ));
-  connect( run_benchmark_ui_.benchmark_select_folder_button, SIGNAL( clicked( ) ), this, SLOT( benchmarkFolderButtonClicked( ) ));
-
-  for (StartStateMap::iterator it = start_states_.begin(); it != start_states_.end(); ++it)
+  if (! robot_interaction_ || robot_interaction_->getActiveEndEffectors().size() == 0)
   {
-    run_benchmark_ui_.benchmark_start_state_combo->addItem(it->first.c_str());
+    QMessageBox::warning(this, "Error", "Please make sure a planning group with an end-effector is active");
+    return;
   }
 
-  dialog->show();
+  run_benchmark_ui_.benchmark_goal_text->setText(ui_.load_poses_filter_text->text());
+  run_benchmark_ui_.benchmark_start_state_text->setText(ui_.load_states_filter_text->text());
+
+  // Load available planners
+  boost::shared_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager> > planner_plugin_loader;
+  std::map<std::string, planning_interface::PlannerManagerPtr> planner_interfaces;
+  try
+  {
+    planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>("moveit_core", "planning_interface::PlannerManager"));
+  }
+  catch(pluginlib::PluginlibException& ex)
+  {
+    ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
+  }
+
+  if (planner_plugin_loader)
+  {
+    // load the planning plugins
+    const std::vector<std::string> &classes = planner_plugin_loader->getDeclaredClasses();
+    for (std::size_t i = 0 ; i < classes.size() ; ++i)
+    {
+      ROS_DEBUG("Attempting to load and configure %s", classes[i].c_str());
+      try
+      {
+        boost::shared_ptr<planning_interface::PlannerManager> p = planner_plugin_loader->createInstance(classes[i]);
+        p->initialize(scene_display_->getPlanningSceneRO()->getRobotModel(), "");
+        planner_interfaces[classes[i]] = p;
+      }
+      catch (pluginlib::PluginlibException& ex)
+      {
+        ROS_ERROR_STREAM("Exception while loading planner '" << classes[i] << "': " << ex.what());
+      }
+    }
+
+    //Get the list of planning interfaces and planning algorithms
+    if (! planner_interfaces.empty())
+    {
+      std::stringstream interfaces_ss, algorithms_ss;
+      for (std::map<std::string, boost::shared_ptr<planning_interface::PlannerManager> >::const_iterator it = planner_interfaces.begin() ;
+          it != planner_interfaces.end(); ++it)
+      {
+        interfaces_ss << it->first << " ";
+
+        std::vector<std::string> known;
+        it->second->getPlanningAlgorithms(known);
+        for (std::size_t i = 0; i < known.size(); ++i)
+          algorithms_ss << known[i] << " ";
+      }
+      ROS_DEBUG("Available planner instances: %s. Available algorithms: %s", interfaces_ss.str().c_str(), algorithms_ss.str().c_str());
+      run_benchmark_ui_.planning_interfaces_text->setText(QString(interfaces_ss.str().c_str()));
+      run_benchmark_ui_.planning_algorithms_text->setText(QString(algorithms_ss.str().c_str()));
+    }
+  }
+
+  run_benchmark_dialog_->show();
 }
 
 void MainWindow::benchmarkFolderButtonClicked(void)
@@ -874,12 +990,17 @@ void MainWindow::benchmarkFolderButtonClicked(void)
   run_benchmark_ui_.benchmark_output_folder_text->setText(dir);
 }
 
-void MainWindow::runBenchmarkOKButtonClicked(void)
+void MainWindow::cancelBenchmarkButtonClicked(void)
+{
+  run_benchmark_dialog_->close();
+}
+
+bool MainWindow::saveBenchmarkConfigButtonClicked(void)
 {
   if (run_benchmark_ui_.benchmark_output_folder_text->text().isEmpty())
   {
     QMessageBox::warning(this, "Missing data", "Must specify an output folder");
-    return;
+    return false;
   }
 
   QString outfilename =  run_benchmark_ui_.benchmark_output_folder_text->text().append("/config.cfg");
@@ -892,29 +1013,82 @@ void MainWindow::runBenchmarkOKButtonClicked(void)
     outfile << "planning_frame=" << scene_display_->getPlanningSceneMonitor()->getRobotModel()->getModelFrame() << std::endl;
     outfile << "name=" << scene_display_->getPlanningSceneRO()->getName() << std::endl;
 
-    //TODO: Let the user select the timeout, runs, and start regex
-    outfile << "timeout=1" << std::endl;
-    outfile << "runs=1" << std::endl;
-    outfile << "output=" << scene_display_->getPlanningSceneMonitor()->getRobotModel()->getName() << "_" <<
-                        scene_display_->getPlanningSceneRO()->getName() << "_" <<
-                        ros::Time::now() << std::endl;
-    outfile << "start=" << run_benchmark_ui_.benchmark_output_folder_text->text().toStdString() << std::endl;
+    outfile << "timeout=" << run_benchmark_ui_.timeout_spin->value() << std::endl;
+    outfile << "runs=" << run_benchmark_ui_.number_of_runs_spin->value() << std::endl;
+    outfile << "output=" << run_benchmark_ui_.benchmark_output_folder_text->text().toStdString() << "/" << scene_display_->getPlanningSceneMonitor()->getRobotModel()->getName() << "_" <<
+        scene_display_->getPlanningSceneRO()->getName() << "_" <<
+        ros::Time::now() << std::endl;
+    outfile << "start=" << run_benchmark_ui_.benchmark_start_state_text->text().toStdString() << std::endl;
     outfile << "query=" << std::endl;
-    outfile << "goal=" << ui_.load_poses_filter_text->text().toStdString() << std::endl;
+    outfile << "goal=" << run_benchmark_ui_.benchmark_goal_text->text().toStdString() << std::endl;
     outfile << "goal_offset_roll=" << ui_.goal_offset_roll->value() << std::endl;
     outfile << "goal_offset_pitch=" << ui_.goal_offset_pitch->value() << std::endl;
     outfile << "goal_offset_yaw=" << ui_.goal_offset_yaw->value() << std::endl << std::endl;
 
-    //TODO: Let the user select the planners
     outfile << "[plugin]" << std::endl;
-    outfile << "name=ompl_interface_ros/OMPLPlanner" << std::endl;
-    outfile << "planners=RRTConnectkConfigDefault" << std::endl;
+    outfile << "name=" << run_benchmark_ui_.planning_interfaces_text->text().toStdString() << std::endl;
+    outfile << "planners=" << run_benchmark_ui_.planning_algorithms_text->text().toStdString() << std::endl;
 
     outfile.close();
+
+    run_benchmark_dialog_->close();
   }
   else
   {
     QMessageBox::warning(this, "Error", QString("Cannot open file ").append(outfilename).append(" for writing"));
+    return false;
+  }
+
+  return true;
+}
+
+void MainWindow::runBenchmarkButtonClicked(void)
+{
+  if (! saveBenchmarkConfigButtonClicked())
+    return;
+
+  QMessageBox msgBox;
+  msgBox.setText("This will run the benchmark pipeline. The process will take several minutes during which you will not be able to interact with the interface. You can follow the progress in the console output");
+  msgBox.setInformativeText("Do you want to continue?");
+  msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+  msgBox.setDefaultButton(QMessageBox::Yes);
+  int ret = msgBox.exec();
+
+  switch (ret)
+  {
+    case QMessageBox::Yes:
+    {
+      QString outfilename =  run_benchmark_ui_.benchmark_output_folder_text->text().append("/config.cfg");
+      moveit_benchmarks::BenchmarkType btype = 0;
+      moveit_benchmarks::BenchmarkExecution be(scene_display_->getPlanningSceneMonitor()->getPlanningScene(), database_host_, database_port_);
+      if (run_benchmark_ui_.benchmark_include_planners_checkbox->isChecked())
+        btype += moveit_benchmarks::BENCHMARK_PLANNERS;
+      if (run_benchmark_ui_.benchmark_check_reachability_checkbox->isChecked())
+        btype += moveit_benchmarks::BENCHMARK_GOAL_EXISTANCE;
+
+      if (be.readOptions(outfilename.toStdString()))
+      {
+        std::stringstream ss;
+        be.printOptions(ss);
+        ROS_INFO_STREAM("Calling benchmark with options:" << std::endl << ss.str() << std::endl);
+
+        BenchmarkProcessingThread benchmark_thread(be, btype, this);
+        benchmark_thread.startAndShow();
+
+        if (benchmark_thread.isRunning())
+        {
+          benchmark_thread.terminate();
+          benchmark_thread.wait();
+          QMessageBox::warning(this, "", "Benchmark computation canceled");
+        }
+        else
+        {
+          QMessageBox::information(this, "Benchmark computation finished", QString("The results were logged into '").append(run_benchmark_ui_.benchmark_output_folder_text->text()));
+        }
+      }
+
+      break;
+    }
   }
 }
 

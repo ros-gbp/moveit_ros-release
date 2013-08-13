@@ -1,33 +1,38 @@
-/*
- * Copyright (c) 2008, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2008, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
-/* Author: Ioan Sucan, Dave Coleman, Adam Leeper */
+/* Author: Ioan Sucan, Dave Coleman, Adam Leeper, Sachin Chitta */
 
 #ifndef MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_DISPLAY_
 #define MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_DISPLAY_
@@ -119,7 +124,12 @@ class MotionPlanningDisplay : public PlanningSceneDisplay
   void updateQueryGoalState();
 
   void useApproximateIK(bool flag);
-  
+
+  // Pick Place
+  void clearPlaceLocationsDisplay();
+  void visualizePlaceLocations(const std::vector<geometry_msgs::PoseStamped> &place_poses);
+  std::vector<boost::shared_ptr<rviz::Shape> > place_locations_display_;
+
   std::string getCurrentPlanningGroup() const;
 
   void changePlanningGroup(const std::string& group);
@@ -128,7 +138,7 @@ class MotionPlanningDisplay : public PlanningSceneDisplay
   void addStatusText(const std::vector<std::string> &text);
   void setStatusTextColor(const QColor &color);
   void resetStatusTextColor();
-  
+
 private Q_SLOTS:
 
   // ******************************************************************************************
@@ -162,6 +172,12 @@ private Q_SLOTS:
   void resetInteractiveMarkers();
 
 protected:
+
+  enum LinkDisplayStatus
+  {
+    COLLISION_LINK,
+    OUTSIDE_BOUNDS_LINK
+  };
 
   virtual void onRobotModelLoaded();
   virtual void onSceneMonitorReceivedUpdate(planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType update_type);
@@ -200,7 +216,7 @@ protected:
   void updateStateExceptModified(robot_state::RobotState &dest, const robot_state::RobotState &src);
   float getStateDisplayTime();
   void updateBackgroundJobProgressBar();
-  void backgroundJobUpdate(BackgroundProcessing::JobEvent event);
+  void backgroundJobUpdate(moveit::tools::BackgroundProcessing::JobEvent event, const std::string &jobname);
 
   void setQueryStateHelper(bool use_start_state, const std::string &v);
   void populateMenuHandler(boost::shared_ptr<interactive_markers::MenuHandler>& mh);
@@ -224,7 +240,7 @@ protected:
   robot_trajectory::RobotTrajectoryPtr trajectory_message_to_display_;
   std::vector<rviz::Robot*> trajectory_trail_;
   ros::Subscriber trajectory_topic_sub_;
-  ros::NodeHandle private_handle_;
+  ros::NodeHandle private_handle_, node_handle_;
   bool animating_path_;
   int current_state_;
   float current_state_time_;
@@ -242,8 +258,9 @@ protected:
   robot_interaction::RobotInteraction::InteractionHandlerPtr query_goal_state_;
   boost::shared_ptr<interactive_markers::MenuHandler> menu_handler_start_;
   boost::shared_ptr<interactive_markers::MenuHandler> menu_handler_goal_;
-  std::map<std::string, int> collision_links_start_;
-  std::map<std::string, int> collision_links_goal_;
+  std::map<std::string, LinkDisplayStatus> status_links_start_;
+  std::map<std::string, LinkDisplayStatus> status_links_goal_;
+
   /// Hold the names of the groups for which the query states have been updated (and should not be altered when new info is received from the planning scene)
   std::set<std::string> modified_groups_;
 
