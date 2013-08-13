@@ -1,33 +1,38 @@
-/*
- * Copyright (c) 2013, Willow Garage, Inc.
- * All rights reserved.
+/*********************************************************************
+ * Software License Agreement (BSD License)
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ *  Copyright (c) 2013, Willow Garage, Inc.
+ *  All rights reserved.
  *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Willow Garage, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived from
- *       this software without specific prior written permission.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
  *
- * Author: Mario Prats, Ioan Sucan
- */
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
+
+/* Author: Mario Prats, Ioan Sucan */
 
 #ifndef BT_MAIN_WINDOW_
 #define BT_MAIN_WINDOW_
@@ -39,6 +44,7 @@
 #include "ui_main_window.h"
 #include "ui_run_benchmark_dialog.h"
 #include "ui_robot_loader.h"
+#include "ui_bounding_box_goals.h"
 
 #ifndef Q_MOC_RUN
 
@@ -87,7 +93,10 @@ public Q_SLOTS:
 
   //Goals and states
   void goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback &feedback);
+  void createGoalAtPose(const std::string &name, const Eigen::Affine3d &pose);
   void createGoalPoseButtonClicked(void);
+  void showBBoxGoalsDialog();
+  void createBBoxGoalsButtonClicked(void);
   void removeSelectedGoalsButtonClicked(void);
   void removeAllGoalsButtonClicked(void);
   void goalPoseSelectionChanged(void);
@@ -98,7 +107,9 @@ public Q_SLOTS:
   void checkGoalsInCollision(void);
   void checkGoalsReachable(void);
   void runBenchmark(void);
-  void runBenchmarkOKButtonClicked(void);
+  bool saveBenchmarkConfigButtonClicked(void);
+  void cancelBenchmarkButtonClicked(void);
+  void runBenchmarkButtonClicked(void);
   void benchmarkFolderButtonClicked(void);
   void loadBenchmarkResults(void);
   void updateMarkerState(GripperMarkerPtr marker, const GripperMarker::GripperMarkerState &state);
@@ -138,7 +149,8 @@ private:
   Ui::MainWindow ui_;
   Ui_BenchmarkDialog run_benchmark_ui_;
   Ui_RobotLoader load_robot_ui_;
-  QDialog *robot_loader_dialog_;
+  Ui_BoundingBoxGoalsDialog bbox_dialog_ui_;
+  QDialog *robot_loader_dialog_, *run_benchmark_dialog_, *bbox_dialog_;
   boost::shared_ptr<QSettings> settings_;
 
   //rviz
@@ -160,6 +172,8 @@ private:
   rviz::Display *int_marker_display_;
 
   //Warehouse
+  std::string database_host_;
+  std::size_t database_port_;
   boost::shared_ptr<moveit_warehouse::PlanningSceneStorage> planning_scene_storage_;
   boost::shared_ptr<moveit_warehouse::ConstraintsStorage> constraints_storage_;
   boost::shared_ptr<moveit_warehouse::TrajectoryConstraintsStorage> trajectory_constraints_storage_;
