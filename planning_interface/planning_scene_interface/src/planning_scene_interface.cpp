@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2012, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan */
 
@@ -75,17 +75,21 @@ public:
     return result;
   }
 
-  std::vector<std::string> getKnownObjectNamesInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz, bool with_type)
+  std::vector<std::string> getKnownObjectNamesInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz, bool with_type, std::vector<std::string> &types)
   {
     moveit_msgs::GetPlanningScene::Request request;
     moveit_msgs::GetPlanningScene::Response response;
     std::vector<std::string> result;
     request.components.components = request.components.WORLD_OBJECT_GEOMETRY;
     if (!planning_scene_service_.call(request, response))
+    {
+      ROS_WARN("Could not call planning scene service to get object names");
       return result;
+    }
+
     for (std::size_t i = 0; i < response.scene.world.collision_objects.size() ; ++i)
     {
-      if (with_type && !response.scene.world.collision_objects[i].type.key.empty())
+      if (with_type && response.scene.world.collision_objects[i].type.key.empty())
         continue;
       if (response.scene.world.collision_objects[i].mesh_poses.empty() &&
           response.scene.world.collision_objects[i].primitive_poses.empty())
@@ -114,7 +118,42 @@ public:
           break;
         }
       if (good)
+      {
         result.push_back(response.scene.world.collision_objects[i].id);
+        if(with_type)
+          types.push_back(response.scene.world.collision_objects[i].type.key);
+      }
+    }
+    return result;
+  }
+
+  std::map<std::string, geometry_msgs::Pose> getObjectPoses(const std::vector<std::string> &object_ids)
+  {
+    moveit_msgs::GetPlanningScene::Request request;
+    moveit_msgs::GetPlanningScene::Response response;
+    std::map<std::string, geometry_msgs::Pose> result;
+    request.components.components = request.components.WORLD_OBJECT_GEOMETRY;
+    if (!planning_scene_service_.call(request, response))
+    {
+      ROS_WARN("Could not call planning scene service to get object names");
+      return result;
+    }
+
+    for(std::size_t i=0; i < object_ids.size(); ++i)
+    {      
+      for (std::size_t j=0; j < response.scene.world.collision_objects.size() ; ++j)
+      {
+        if(response.scene.world.collision_objects[j].id == object_ids[i])
+        {
+          if (response.scene.world.collision_objects[j].mesh_poses.empty() &&
+              response.scene.world.collision_objects[j].primitive_poses.empty())
+            continue;
+          if(!response.scene.world.collision_objects[j].mesh_poses.empty())
+            result[response.scene.world.collision_objects[j].id] = response.scene.world.collision_objects[j].mesh_poses[0];
+          else
+            result[response.scene.world.collision_objects[j].id] = response.scene.world.collision_objects[j].primitive_poses[0];
+        }
+      }      
     }
     return result;
   }
@@ -141,11 +180,15 @@ std::vector<std::string> PlanningSceneInterface::getKnownObjectNames(bool with_t
   return impl_->getKnownObjectNames(with_type);
 }
 
-std::vector<std::string> PlanningSceneInterface::getKnownObjectNamesInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz, bool with_type)
+std::vector<std::string> PlanningSceneInterface::getKnownObjectNamesInROI(double minx, double miny, double minz, double maxx, double maxy, double maxz, bool with_type, std::vector<std::string> &types)
 {
-  return impl_->getKnownObjectNamesInROI(minx, miny, minz, maxx, maxy, maxz, with_type);
+  return impl_->getKnownObjectNamesInROI(minx, miny, minz, maxx, maxy, maxz, with_type, types);
 }
 
+std::map<std::string, geometry_msgs::Pose> PlanningSceneInterface::getObjectPoses(const std::vector<std::string> &object_ids)
+{
+  return impl_->getObjectPoses(object_ids);
+}
 
 }
 }
