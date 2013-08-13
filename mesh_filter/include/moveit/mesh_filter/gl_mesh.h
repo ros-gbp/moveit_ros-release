@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2013, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,47 +32,53 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Jon Binney, Ioan Sucan */
+/* Author: Suat Gedikli */
 
-#include <boost/shared_ptr.hpp>
-#include <ros/ros.h>
-#include <tf/tf.h>
-#include <tf/transform_listener.h>
-#include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
-#include <octomap_msgs/conversions.h>
+#ifndef MOVEIT_MESH_FILTER_GLMESH_
+#define MOVEIT_MESH_FILTER_GLMESH_
 
-static void publishOctomap(ros::Publisher *octree_binary_pub, occupancy_map_monitor::OccupancyMapMonitor *server)
+#include <Eigen/Eigen>
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <vector>
+
+namespace shapes
 {
-  octomap_msgs::Octomap map;
-
-  map.header.frame_id = server->getMapFrame();
-  map.header.stamp = ros::Time::now();
-
-  server->getOcTreePtr()->lockRead();
-  try
-  {
-    if (!octomap_msgs::binaryMapToMsgData(*server->getOcTreePtr(), map.data))
-      ROS_ERROR_THROTTLE(1, "Could not generate OctoMap message");
-  }
-  catch(...)
-  {
-    ROS_ERROR_THROTTLE(1, "Exception thrown while generating OctoMap message");
-  }
-  server->getOcTreePtr()->unlockRead();
-
-  octree_binary_pub->publish(map);
+  class Mesh;
 }
 
-int main(int argc, char **argv)
+namespace mesh_filter
 {
-  ros::init(argc, argv, "occupancy_map_server");
-  ros::NodeHandle nh;
-  ros::Publisher octree_binary_pub = nh.advertise<octomap_msgs::Octomap>("octomap_binary", 1);
-  boost::shared_ptr<tf::Transformer> listener = boost::make_shared<tf::TransformListener>(ros::Duration(5.0));
-  occupancy_map_monitor::OccupancyMapMonitor server(listener);
-  server.setUpdateCallback(boost::bind(&publishOctomap, &octree_binary_pub, &server));
-  server.startMonitor();
+/**
+ * \brief GLMesh represents a mesh from geometric_shapes for rendering in GL frame buffers
+ * \author Suat Gedikli (gedikli@willowgarage.com)
+ */
+class GLMesh
+{
+  public:
+    /**
+     * \brief Constucts a GLMesh object for given mesh and label
+     * \author Suat Gedikli (gedikli@willowgarage.com)
+     * \param[in] mesh
+     * \param[in] mesh_label
+     */
+    GLMesh (const shapes::Mesh& mesh, unsigned int mesh_label);
 
-  ros::spin();
-  return 0;
-}
+    /** \brief Destructor*/
+    ~GLMesh ();
+    /**
+     * \brief renders the mesh in current OpenGL frame buffer (context)
+     * \param[in] transform the modelview transformation describing the pose of the mesh in camera coordinate frame
+     * \author Suat Gedikli (gedikli@willowgarage.com)
+     */
+    void render (const Eigen::Affine3d& transform) const;
+  private:
+
+    /** \brief the OpenGL mesh represented as a OpenGL list */
+    GLuint list_;
+
+    /** \brief label of current mesh*/
+    unsigned int mesh_label_;
+};
+} // namespace mesh_filter
+#endif

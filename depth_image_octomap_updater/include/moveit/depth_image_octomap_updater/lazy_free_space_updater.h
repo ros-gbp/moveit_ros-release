@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2011, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,47 +32,57 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Jon Binney, Ioan Sucan */
+/* Author: Ioan Sucan */
 
-#include <boost/shared_ptr.hpp>
-#include <ros/ros.h>
-#include <tf/tf.h>
-#include <tf/transform_listener.h>
-#include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
-#include <octomap_msgs/conversions.h>
+#ifndef MOVEIT_OCCUPANCY_MAP_MONITOR_LAZY_FREE_SPACE_UPDATER_
+#define MOVEIT_OCCUPANCY_MAP_MONITOR_LAZY_FREE_SPACE_UPDATER_
 
-static void publishOctomap(ros::Publisher *octree_binary_pub, occupancy_map_monitor::OccupancyMapMonitor *server)
+#include <moveit/occupancy_map_monitor/occupancy_map.h>
+#include <boost/thread.hpp>
+#include <deque>
+
+namespace occupancy_map_monitor
 {
-  octomap_msgs::Octomap map;
 
-  map.header.frame_id = server->getMapFrame();
-  map.header.stamp = ros::Time::now();
+class LazyFreeSpaceUpdater
+{
+public:
 
-  server->getOcTreePtr()->lockRead();
-  try
-  {
-    if (!octomap_msgs::binaryMapToMsgData(*server->getOcTreePtr(), map.data))
-      ROS_ERROR_THROTTLE(1, "Could not generate OctoMap message");
-  }
-  catch(...)
-  {
-    ROS_ERROR_THROTTLE(1, "Exception thrown while generating OctoMap message");
-  }
-  server->getOcTreePtr()->unlockRead();
+  LazyFreeSpaceUpdater(const OccMapTreePtr &tree, unsigned int max_batch_size = 10);
+  ~LazyFreeSpaceUpdater();
 
-  octree_binary_pub->publish(map);
+  void pushLazyUpdate(octomap::KeySet *occupied_cells, octomap::KeySet *model_cells, const octomap::point3d &sensor_origin);
+
+private:
+
+  typedef std::tr1::unordered_map<octomap::OcTreeKey, unsigned int, octomap::OcTreeKey::KeyHash> OcTreeKeyCountMap;
+
+  void pushBatchToProcess(OcTreeKeyCountMap *occupied_cells, octomap::KeySet *model_cells, const octomap::point3d &sensor_origin);
+
+  void lazyUpdateThread();
+  void processThread();
+
+  OccMapTreePtr tree_;
+  bool running_;
+  std::size_t max_batch_size_;
+  double max_sensor_delta_;
+
+  std::deque<octomap::KeySet*> occupied_cells_sets_;
+  std::deque<octomap::KeySet*> model_cells_sets_;
+  std::deque<octomap::point3d> sensor_origins_;
+  boost::condition_variable update_condition_;
+  boost::mutex update_cell_sets_lock_;
+
+  OcTreeKeyCountMap *process_occupied_cells_set_;
+  octomap::KeySet *process_model_cells_set_;
+  octomap::point3d process_sensor_origin_;
+  boost::condition_variable process_condition_;
+  boost::mutex cell_process_lock_;
+
+  boost::thread update_thread_;
+  boost::thread process_thread_;
+};
+
 }
 
-int main(int argc, char **argv)
-{
-  ros::init(argc, argv, "occupancy_map_server");
-  ros::NodeHandle nh;
-  ros::Publisher octree_binary_pub = nh.advertise<octomap_msgs::Octomap>("octomap_binary", 1);
-  boost::shared_ptr<tf::Transformer> listener = boost::make_shared<tf::TransformListener>(ros::Duration(5.0));
-  occupancy_map_monitor::OccupancyMapMonitor server(listener);
-  server.setUpdateCallback(boost::bind(&publishOctomap, &octree_binary_pub, &server));
-  server.startMonitor();
-
-  ros::spin();
-  return 0;
-}
+#endif /* MOVEIT_OCCUPANCY_MAP_UPDATER_H_ */
