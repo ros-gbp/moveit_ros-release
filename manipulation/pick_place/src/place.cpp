@@ -49,19 +49,23 @@ PlacePlan::PlacePlan(const PickPlaceConstPtr &pick_place) : PickPlacePlanBase(pi
 {
 }
 
-bool PlacePlan::transformToEndEffectorGoal(const geometry_msgs::PoseStamped &goal_pose,
-                       const robot_state::AttachedBody* attached_body,
-                       geometry_msgs::PoseStamped &place_pose) const
+namespace 
+{
+bool transformToEndEffectorGoal(const geometry_msgs::PoseStamped &goal_pose,
+                                const robot_state::AttachedBody* attached_body,
+                                geometry_msgs::PoseStamped &place_pose)
 {
   const EigenSTL::vector_Affine3d& fixed_transforms = attached_body->getFixedTransforms();
   if (fixed_transforms.empty())
-    return false;
+    return false; 
+  
   Eigen::Affine3d end_effector_transform;
   tf::poseMsgToEigen(goal_pose.pose, end_effector_transform);
   end_effector_transform = end_effector_transform * fixed_transforms[0].inverse();
   place_pose.header = goal_pose.header;
   tf::poseEigenToMsg(end_effector_transform, place_pose.pose);
   return true;
+}
 }
 
 bool PlacePlan::plan(const planning_scene::PlanningSceneConstPtr &planning_scene, const moveit_msgs::PlaceGoal &goal)
@@ -106,31 +110,21 @@ bool PlacePlan::plan(const planning_scene::PlanningSceneConstPtr &planning_scene
   {
     // in the first try, look for objects attached to the eef, if the eef is known;
     // otherwise, look for attached bodies in the planning group itself
-    const std::vector<std::string> &links = loop_count == 0 ?
-      (eef ? eef->getLinkModelNames() : jmg->getLinkModelNames()) : jmg->getLinkModelNames();
+    std::vector<const robot_state::AttachedBody*> attached_bodies;
+    planning_scene->getCurrentState().getAttachedBodies(attached_bodies, loop_count == 0 ? (eef ? eef : jmg) : jmg);
+    
     // if we had no eef, there is no more looping to do, so we bump the loop count
     if (loop_count == 0 && !eef)
       loop_count++;
     loop_count++;
-    for (std::size_t i = 0 ; i < links.size() ; ++i)
+    if (attached_bodies.size() > 1)
     {
-      const robot_state::LinkState *ls = planning_scene->getCurrentState().getLinkState(links[i]);
-      if (ls)
-      {
-        std::vector<const robot_state::AttachedBody*> attached_bodies;
-        ls->getAttachedBodies(attached_bodies);
-        if (attached_bodies.empty())
-          continue;
-        if (attached_bodies.size() > 1 || !attached_object_name.empty())
-        {
-          ROS_ERROR("Multiple attached bodies for group '%s' but no explicit attached object to place was specified", goal.group_name.c_str());
-          error_code_.val = moveit_msgs::MoveItErrorCodes::INVALID_OBJECT_NAME;
-          return false;
-        }
-        else
-          attached_object_name = attached_bodies[0]->getName();
-      }
+      ROS_ERROR("Multiple attached bodies for group '%s' but no explicit attached object to place was specified", goal.group_name.c_str());
+      error_code_.val = moveit_msgs::MoveItErrorCodes::INVALID_OBJECT_NAME;
+      return false;
     }
+    else
+      attached_object_name = attached_bodies[0]->getName();
   }
 
   const robot_state::AttachedBody *attached_body = planning_scene->getCurrentState().getAttachedBody(attached_object_name);
@@ -146,9 +140,11 @@ bool PlacePlan::plan(const planning_scene::PlanningSceneConstPtr &planning_scene
   // construct common data for possible manipulation plans
   ManipulationPlanSharedDataPtr plan_data(new ManipulationPlanSharedData());
   ManipulationPlanSharedDataConstPtr const_plan_data = plan_data;
-  plan_data->planning_group_ = jmg->getName();
-  plan_data->end_effector_group_ = eef ? eef->getName() : "";
-  plan_data->ik_link_name_ = eef ? eef->getEndEffectorParentGroup().second : "";
+  plan_data->planning_group_ = jmg;
+  plan_data->end_effector_group_ = eef;
+  if (eef)
+    plan_data->ik_link_ = planning_scene->getRobotModel()->getLinkModel(eef->getEndEffectorParentGroup().second);
+  
   plan_data->timeout_ = endtime;
   plan_data->path_constraints_ = goal.path_constraints;
   plan_data->planner_id_ = goal.planner_id;
@@ -197,15 +193,24 @@ bool PlacePlan::plan(const planning_scene::PlanningSceneConstPtr &planning_scene
   for (std::size_t i = 0 ; i < goal.place_locations.size() ; ++i)
   {
     ManipulationPlanPtr p(new ManipulationPlan(const_plan_data));
-    const manipulation_msgs::PlaceLocation &pl = goal.place_locations[i];
-    // The goals are specified for the attached body
-    // but we want to transform them into goals for the end-effector instead
-    transformToEndEffectorGoal(pl.place_pose, attached_body, p->goal_pose_);
-    p->approach_ = pl.approach;
-    p->retreat_ = pl.retreat;
+    const moveit_msgs::PlaceLocation &pl = goal.place_locations[i];
+    
+    if (goal.place_eef)
+      p->goal_pose_ = pl.place_pose;
+    else
+      // The goals are specified for the attached body
+      // but we want to transform them into goals for the end-effector instead
+      if (!transformToEndEffectorGoal(pl.place_pose, attached_body, p->goal_pose_))
+      {    
+        p->goal_pose_ = pl.place_pose;
+        logError("Unable to transform the desired pose of the object to the pose of the end-effector");
+      }
+    
+    p->approach_ = pl.pre_place_approach;
+    p->retreat_ = pl.post_place_retreat;
     p->retreat_posture_ = pl.post_place_posture;
     p->id_ = i;
-    if (p->retreat_posture_.name.empty())
+    if (p->retreat_posture_.joint_names.empty())
       p->retreat_posture_ = attached_body->getDetachPosture();
     pipeline_.push(p);
   }
