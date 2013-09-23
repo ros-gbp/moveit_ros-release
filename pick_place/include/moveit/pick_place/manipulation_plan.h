@@ -41,7 +41,7 @@
 #include <moveit/robot_state/robot_state.h>
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/plan_execution/plan_representation.h>
-#include <manipulation_msgs/GripperTranslation.h>
+#include <moveit_msgs/GripperTranslation.h>
 #include <moveit_msgs/RobotState.h>
 #include <moveit_msgs/RobotTrajectory.h>
 #include <moveit_msgs/MoveItErrorCodes.h>
@@ -54,11 +54,18 @@ namespace pick_place
 
 struct ManipulationPlanSharedData
 {
-  std::string planning_group_;
-
-  std::string end_effector_group_;
-
-  std::string ik_link_name_;
+  ManipulationPlanSharedData() 
+    : planning_group_(NULL)
+    , end_effector_group_(NULL)
+    , ik_link_(NULL)
+    , max_goal_sampling_attempts_(0)
+    , minimize_object_distance_(false)
+  {
+  }
+  
+  const robot_model::JointModelGroup *planning_group_;
+  const robot_model::JointModelGroup *end_effector_group_;
+  const robot_model::LinkModel *ik_link_;
 
   unsigned int max_goal_sampling_attempts_;
 
@@ -98,14 +105,14 @@ struct ManipulationPlan
   ManipulationPlanSharedDataConstPtr shared_data_;
 
   // the approach motion towards the goal
-  manipulation_msgs::GripperTranslation approach_;
+  moveit_msgs::GripperTranslation approach_;
 
   // the retreat motion away from the goal
-  manipulation_msgs::GripperTranslation retreat_;
+  moveit_msgs::GripperTranslation retreat_;
 
-  sensor_msgs::JointState approach_posture_;
+  trajectory_msgs::JointTrajectory approach_posture_;
 
-  sensor_msgs::JointState retreat_posture_;
+  trajectory_msgs::JointTrajectory retreat_posture_;
 
   // -------------- computed data --------------------------
   geometry_msgs::PoseStamped goal_pose_;
@@ -126,7 +133,7 @@ struct ManipulationPlan
   // The processing stage that was last working on this plan, or was about to work on this plan
   std::size_t processing_stage_;
 
-  // An id for this plan
+  // An id for this plan; this is usually the index of the Grasp / PlaceLocation in the input request
   std::size_t id_;
 
 };
