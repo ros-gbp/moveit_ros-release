@@ -42,8 +42,8 @@
 #include <moveit_msgs/RobotState.h>
 #include <moveit_msgs/PlannerInterfaceDescription.h>
 #include <moveit_msgs/Constraints.h>
-#include <manipulation_msgs/Grasp.h>
-#include <manipulation_msgs/PlaceLocation.h>
+#include <moveit_msgs/Grasp.h>
+#include <moveit_msgs/PlaceLocation.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <boost/shared_ptr.hpp>
 #include <tf/tf.h>
@@ -163,6 +163,9 @@ public:
   void setWorkspace(double minx, double miny, double minz, double maxx, double maxy, double maxz);
 
   /** \brief If a different start state should be considered instead of the current state of the robot, this function sets that state */
+  void setStartState(const moveit_msgs::RobotState &start_state);
+
+  /** \brief If a different start state should be considered instead of the current state of the robot, this function sets that state */
   void setStartState(const robot_state::RobotState &start_state);
 
   /** \brief Set the starting state for planning to be that reported by the robot's joint state publication */
@@ -186,13 +189,6 @@ public:
       Values from state for joints not in this MoveGroup's group are ignored. */
   bool setJointValueTarget(const robot_state::RobotState &robot_state);
 
-  /** \brief Set the joint state goal from corresponding joint values from the specified group.
-      joint_state_group must represent the same group as this MoveGroup. */
-  bool setJointValueTarget(const robot_state::JointStateGroup &joint_state_group);
-
-  /** \brief Set the joint state goal for a particular joint */
-  bool setJointValueTarget(const robot_state::JointState &joint_state);
-
   /** \brief Set the joint state goal for a particular joint */
   bool setJointValueTarget(const std::string &joint_name, const std::vector<double> &values);
 
@@ -202,6 +198,30 @@ public:
   /** \brief Set the joint state goal for a particular joint */
   bool setJointValueTarget(const sensor_msgs::JointState &state);
 
+  /** \brief Set the joint state goal for a particular joint by computing IK. This is different from setPoseTarget() in that
+      a single IK state is computed to be the goal of the planner, rather than sending the pose itself to the planner. */
+  bool setJointValueTarget(const geometry_msgs::Pose &eef_pose, const std::string &end_effector_link = "");
+
+  /** \brief Set the joint state goal for a particular joint by computing IK. This is different from setPoseTarget() in that
+      a single IK state is computed to be the goal of the planner, rather than sending the pose itself to the planner. */
+  bool setJointValueTarget(const geometry_msgs::PoseStamped &eef_pose, const std::string &end_effector_link = "");
+
+  /** \brief Set the joint state goal for a particular joint by computing IK. This is different from setPoseTarget() in that
+      a single IK state is computed to be the goal of the planner, rather than sending the pose itself to the planner. */
+  bool setJointValueTarget(const Eigen::Affine3d &eef_pose, const std::string &end_effector_link = "");
+
+  /** \brief Set the joint state goal for a particular joint by computing approximate IK. This is different from setPoseTarget() in that
+      a single IK state is computed to be the goal of the planner, rather than sending the pose itself to the planner. */
+  bool setApproximateJointValueTarget(const geometry_msgs::Pose &eef_pose, const std::string &end_effector_link = "");
+
+  /** \brief Set the joint state goal for a particular joint by computing approximate IK. This is different from setPoseTarget() in that
+      a single IK state is computed to be the goal of the planner, rather than sending the pose itself to the planner. */
+  bool setApproximateJointValueTarget(const geometry_msgs::PoseStamped &eef_pose, const std::string &end_effector_link = "");
+
+  /** \brief Set the joint state goal for a particular joint by computing approximate IK. This is different from setPoseTarget() in that
+      a single IK state is computed to be the goal of the planner, rather than sending the pose itself to the planner. */
+  bool setApproximateJointValueTarget(const Eigen::Affine3d &eef_pose, const std::string &end_effector_link = "");
+
   /** \brief Set the joint state goal to a random joint configuration */
   void setRandomTarget();
 
@@ -210,7 +230,7 @@ public:
   bool setNamedTarget(const std::string &name);
 
   /// Get the currently set joint state goal
-  const robot_state::JointStateGroup& getJointValueTarget() const;
+  const robot_state::RobotState& getJointValueTarget() const;
 
   /**@}*/
 
@@ -348,16 +368,16 @@ public:
   bool pick(const std::string &object);
 
   /** \brief Pick up an object given a grasp pose */
-  bool pick(const std::string &object, const manipulation_msgs::Grasp &grasp);
+  bool pick(const std::string &object, const moveit_msgs::Grasp &grasp);
 
   /** \brief Pick up an object given possible grasp poses */
-  bool pick(const std::string &object, const std::vector<manipulation_msgs::Grasp> &grasps);
+  bool pick(const std::string &object, const std::vector<moveit_msgs::Grasp> &grasps);
 
   /** \brief Place an object somewhere safe in the world (a safe location will be detected) */
   bool place(const std::string &object);
 
   /** \brief Place an object at one of the specified possible locations */
-  bool place(const std::string &object, const std::vector<manipulation_msgs::PlaceLocation> &locations);
+  bool place(const std::string &object, const std::vector<moveit_msgs::PlaceLocation> &locations);
 
   /** \brief Place an object at one of the specified possible locations */
   bool place(const std::string &object, const std::vector<geometry_msgs::PoseStamped> &poses);

@@ -35,8 +35,11 @@
 /* Author: Ioan Sucan */
 
 #include <moveit/common_planning_interface_objects/common_objects.h>
+#include <moveit/robot_state/conversions.h>
 #include <moveit/py_bindings_tools/roscpp_initializer.h>
 #include <moveit/py_bindings_tools/py_conversions.h>
+#include <moveit/py_bindings_tools/serialize_msg.h>
+#include <moveit_msgs/RobotState.h>
 
 #include <boost/python.hpp>
 #include <Python.h>
@@ -84,19 +87,19 @@ public:
     else
       return bp::list();
   }
-
+  
   bp::list getGroupNames() const
   {
     return py_bindings_tools::listFromString(robot_model_->getJointModelGroupNames());
   }
-
+  
   bp::list getJointLimits(const std::string &name) const
   {
     bp::list result;
     const robot_model::JointModel *jm = robot_model_->getJointModel(name);
     if (jm)
     {
-      const std::vector<moveit_msgs::JointLimits> &lim = jm->getVariableLimits();
+      const std::vector<moveit_msgs::JointLimits> &lim = jm->getVariableBoundsMsg();
       for (std::size_t i = 0 ; i < lim.size() ; ++i)
       {
         bp::list l;
@@ -107,22 +110,22 @@ public:
     }
     return result;
   }
-
+  
   const char* getPlanningFrame() const
   {
     return robot_model_->getModelFrame().c_str();
   }
-
+  
   bp::list getLinkPose(const std::string &name)
   {
     bp::list l;
     if (!ensureCurrentState())
       return l;
     robot_state::RobotStatePtr state = current_state_monitor_->getCurrentState();
-    const robot_state::LinkState *ls = state->getLinkState(name);
-    if (ls)
+    const robot_model::LinkModel *lm = state->getLinkModel(name);
+    if (lm)
     {
-      const Eigen::Affine3d &t = ls->getGlobalLinkTransform();
+      const Eigen::Affine3d &t = state->getGlobalLinkTransform(lm);
       std::vector<double> v(7);
       v[0] = t.translation().x();
       v[1] = t.translation().y();
@@ -136,53 +139,60 @@ public:
     }
     return l;
   }
-
+  
   bp::list getCurrentJointValues(const std::string &name)
   {
     bp::list l;
     if (!ensureCurrentState())
       return l;
     robot_state::RobotStatePtr state = current_state_monitor_->getCurrentState();
-    const robot_state::JointState *js = state->getJointState(name);
-    if (js)
-      l = py_bindings_tools::listFromDouble(js->getVariableValues());
+    const robot_model::JointModel *jm = state->getJointModel(name);
+    if (jm)
+    {
+      const double *pos = state->getJointPositions(jm);
+      const unsigned int sz = jm->getVariableCount();
+      for (unsigned int i = 0 ; i < sz ; ++i)
+        l.append(pos[i]);
+    }
+    
     return l;
   }
-
-  bool ensureCurrentState()
+  
+  bool ensureCurrentState(double wait = 1.0)
   {
     if (!current_state_monitor_)
     {
       ROS_ERROR("Unable to get current robot state");
       return false;
     }
-
+    
     // if needed, start the monitor and wait up to 1 second for a full robot state
     if (!current_state_monitor_->isActive())
     {
       current_state_monitor_->startStateMonitor();
-      if (!current_state_monitor_->waitForCurrentState(1.0))
+      if (!current_state_monitor_->waitForCurrentState(wait))
         ROS_WARN("Joint values for monitored state are requested but the full state is not known");
     }
     return true;
   }
 
+  std::string getCurrentState()
+  {
+    if (!ensureCurrentState())
+      return "";
+    robot_state::RobotStatePtr s = current_state_monitor_->getCurrentState();
+    moveit_msgs::RobotState msg;
+    robot_state::robotStateToRobotStateMsg(*s, msg);
+    return py_bindings_tools::serializeMsg(msg);
+  }
+  
   bp::dict getCurrentVariableValues()
   {
     bp::dict d;
-    if (!current_state_monitor_)
-    {
-      ROS_ERROR("Unable to get current robot state");
+    
+    if (!ensureCurrentState())
       return d;
-    }
-
-    // if needed, start the monitor and wait up to 1 second for a full robot state
-    if (!current_state_monitor_->isActive())
-      current_state_monitor_->startStateMonitor();
-
-    if (!current_state_monitor_->waitForCurrentState(1.0))
-      ROS_WARN("Joint values for monitored state are requested but the full state is not known");
-
+    
     const std::map<std::string, double> &vars = current_state_monitor_->getCurrentStateValues();
     for (std::map<std::string, double>::const_iterator it = vars.begin() ; it != vars.end() ; ++it)
       d[it->first] = it->second;
@@ -220,6 +230,7 @@ static void wrap_robot_interface()
   RobotClass.def("get_joint_limits", &RobotInterfacePython::getJointLimits);
   RobotClass.def("get_link_pose", &RobotInterfacePython::getLinkPose);
   RobotClass.def("get_planning_frame", &RobotInterfacePython::getPlanningFrame);
+  RobotClass.def("get_current_state",  &RobotInterfacePython::getCurrentState);
   RobotClass.def("get_current_variable_values", &RobotInterfacePython::getCurrentVariableValues);
   RobotClass.def("get_current_joint_values",  &RobotInterfacePython::getCurrentJointValues);
   RobotClass.def("get_robot_root_link", &RobotInterfacePython::getRobotRootLink);
