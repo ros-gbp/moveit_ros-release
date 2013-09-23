@@ -1,0 +1,51 @@
+ros-hydro-moveit-ros-benchmarks-gui (0.5.5-0raring) raring; urgency=high
+
+  * porting to new robot API
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sun, 22 Sep 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-benchmarks-gui (0.5.4-0raring) raring; urgency=high
+
+  * allow creating goals uniformly distributed in a bounding box
+  * Duplicate goals with Ctrl-D instead of Ctrl-C
+  * better error checking
+  * adding the possibility to select planners, nb of runs and timeout from the GUI
+  * allow the user to modify start and goal regex before starting benchmark
+  * Allow user to start the benchmark pipeline from the GUI
+  * make headers and author definitions aligned the same way; white space fixes
+  * move background_processing lib to core
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 13 Aug 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-benchmarks-gui (0.5.2-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sun, 14 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-benchmarks-gui (0.5.1-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sat, 13 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-benchmarks-gui (0.5.0-0raring) raring; urgency=high
+
+  * white space fixes (tabs are now spaces)
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Thu, 11 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-benchmarks-gui (0.4.5-0raring) raring; urgency=high
+
+  * More advanced parameter sweeping implmented, workspace bounds added
+  * Added parameter sweeping to benchmarking
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 02 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-benchmarks-gui (0.4.4-0raring) raring; urgency=high
+
+  * waits until the planning scene monitor has been created when loading a robot
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 25 Jun 2013 21:00:00 -0000
+
+

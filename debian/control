@@ -1,0 +1,12 @@
+Source: ros-hydro-moveit-ros-benchmarks-gui
+Section: misc
+Priority: extra
+Maintainer: Ioan Sucan <isucan@willowgarage.com>
+Build-Depends: debhelper (>= 7.0.50~), ros-hydro-catkin, ros-hydro-eigen-conversions, ros-hydro-interactive-markers, ros-hydro-moveit-ros-benchmarks, ros-hydro-moveit-ros-planning, ros-hydro-moveit-ros-visualization, ros-hydro-moveit-ros-warehouse, ros-hydro-roscpp, ros-hydro-rviz, ros-hydro-tf
+Homepage: http://moveit.ros.org
+Standards-Version: 3.9.2
+
+Package: ros-hydro-moveit-ros-benchmarks-gui
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-hydro-eigen-conversions, ros-hydro-interactive-markers, ros-hydro-moveit-ros-benchmarks, ros-hydro-moveit-ros-planning, ros-hydro-moveit-ros-visualization, ros-hydro-moveit-ros-warehouse, ros-hydro-roscpp, ros-hydro-rviz, ros-hydro-tf
+Description: MoveIt GUI tools for benchmarking
