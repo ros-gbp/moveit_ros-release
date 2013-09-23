@@ -55,7 +55,6 @@ void MotionPlanningFrame::detectObjectsButtonClicked()
     if(ps)
     {
       semantic_world_.reset(new moveit::semantic_world::SemanticWorld(ps));
-      ROS_INFO("Setup semantic world");      
     }  
     if(semantic_world_)
     {
@@ -301,14 +300,16 @@ void MotionPlanningFrame::placeObjectButtonClicked()
 
   std::vector<const robot_state::AttachedBody*> attached_bodies;
   const planning_scene_monitor::LockedPlanningSceneRO &ps = planning_display_->getPlanningSceneRO();
-  if(!ps)
+  if (!ps)
   {
     ROS_ERROR("No planning scene");
     return;
   }
-  ps->getCurrentState().getJointStateGroup(group_name)->getAttachedBodies(attached_bodies);
-
-  if(attached_bodies.empty())
+  const robot_model::JointModelGroup *jmg = ps->getCurrentState().getJointModelGroup(group_name);
+  if (jmg)
+    ps->getCurrentState().getAttachedBodies(attached_bodies, jmg);
+  
+  if (attached_bodies.empty())
   {
     ROS_ERROR("No bodies to place");
     return;
