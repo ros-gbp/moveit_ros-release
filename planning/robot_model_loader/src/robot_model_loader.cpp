@@ -103,13 +103,12 @@ void robot_model_loader::RobotModelLoader::configure(const Options &opt)
 
     // if there are additional joint limits specified in some .yaml file, read those in
     ros::NodeHandle nh("~");
-    std::map<std::string, std::vector<moveit_msgs::JointLimits> > individual_joint_limits_map;
 
-    for (unsigned int i = 0; i < model_->getJointModels().size() ; ++i)
+    for (std::size_t i = 0; i < model_->getJointModels().size() ; ++i)
     {
       robot_model::JointModel *jmodel = model_->getJointModels()[i];
-      std::vector<moveit_msgs::JointLimits> jlim = jmodel->getVariableLimits();
-      for(unsigned int j = 0; j < jlim.size(); ++j)
+      std::vector<moveit_msgs::JointLimits> jlim = jmodel->getVariableBoundsMsg();
+      for (std::size_t j = 0; j < jlim.size(); ++j)
       {
         std::string prefix = rdf_loader_->getRobotDescription() + "_planning/joint_limits/" + jlim[j].joint_name + "/";
 
@@ -120,14 +119,6 @@ void robot_model_loader::RobotModelLoader::configure(const Options &opt)
           {
             jlim[j].has_position_limits = true;
             jlim[j].max_position = max_position;
-
-            // also update the model
-            std::pair<double, double> bounds;
-            if (jmodel->getVariableBounds(jlim[j].joint_name, bounds))
-            {
-              bounds.second = max_position;
-              jmodel->setVariableBounds(jlim[j].joint_name, bounds);
-            }
           }
         }
         double min_position;
@@ -137,14 +128,6 @@ void robot_model_loader::RobotModelLoader::configure(const Options &opt)
           {
             jlim[j].has_position_limits = true;
             jlim[j].min_position = min_position;
-
-            // also update the model
-            std::pair<double, double> bounds;
-            if (jmodel->getVariableBounds(jlim[j].joint_name, bounds))
-            {
-              bounds.first = min_position;
-              jmodel->setVariableBounds(jlim[j].joint_name, bounds);
-            }
           }
         }
         double max_velocity;
@@ -167,20 +150,7 @@ void robot_model_loader::RobotModelLoader::configure(const Options &opt)
         if (nh.getParam(prefix + "has_acceleration_limits", has_acc_limits))
           jlim[j].has_acceleration_limits = has_acc_limits;
       }
-      jmodel->setVariableLimits(jlim);
-      individual_joint_limits_map[jmodel->getName()] = jlim;
-    }
-    const std::map<std::string, robot_model::JointModelGroup*> &jmgm = model_->getJointModelGroupMap();
-    for (std::map<std::string, robot_model::JointModelGroup*>::const_iterator it = jmgm.begin() ; it != jmgm.end() ; ++it)
-    {
-      std::vector<moveit_msgs::JointLimits> group_joint_limits;
-      for(unsigned int i = 0; i < it->second->getJointModelNames().size(); i++)
-      {
-        group_joint_limits.insert(group_joint_limits.end(),
-                                  individual_joint_limits_map[it->second->getJointModelNames()[i]].begin(),
-                                  individual_joint_limits_map[it->second->getJointModelNames()[i]].end());
-      }
-      it->second->setVariableLimits(group_joint_limits);
+      jmodel->setVariableBounds(jlim); 
     }
   }
 
@@ -239,28 +209,4 @@ void robot_model_loader::RobotModelLoader::loadKinematicsSolvers(const kinematic
       jmg->setDefaultIKAttempts(it->second);
     }
   }
-}
-
-std::map<std::string, kinematics::KinematicsBasePtr> robot_model_loader::RobotModelLoader::generateKinematicsSolversMap() const
-{
-  std::map<std::string, kinematics::KinematicsBasePtr> result;
-  if (kinematics_loader_ && model_)
-  {
-    const std::vector<std::string> &groups = kinematics_loader_->getKnownGroups();
-    for (std::size_t i = 0 ; i < groups.size() ; ++i)
-    {
-      if (!model_->hasJointModelGroup(groups[i]))
-        continue;
-      const robot_model::JointModelGroup *jmg = model_->getJointModelGroup(groups[i]);
-      if (jmg)
-      {
-        robot_model::SolverAllocatorFn a = jmg->getSolverAllocators().first;
-        if (a)
-          result[jmg->getName()] = a(jmg);
-      }
-    }
-  }
-  else
-    ROS_WARN("Kinematic solvers not yet loaded. Call loadKinematicSolvers() first.");
-  return result;
 }
