@@ -67,16 +67,19 @@ int main(int argc, char **argv)
       {
         moveit::tools::Profiler::Begin("FK Default");
         state.setToDefaultValues();
+        state.update();
         moveit::tools::Profiler::End("FK Default");
       }
-
+      
       printf("Evaluating FK Random ...\n");
       for (int i = 0 ; i < N ; ++i)
       {
         moveit::tools::Profiler::Begin("FK Random");
-        state.setToRandomValues();
+        state.setToRandomPositions();
+        state.update();
         moveit::tools::Profiler::End("FK Random");
       }
+
       std::vector<robot_state::RobotState*> copies(N, (robot_state::RobotState*)NULL);
       printf("Evaluating Copy State ...\n");
       for (int i = 0 ; i < N ; ++i)
@@ -98,22 +101,15 @@ int main(int argc, char **argv)
       for (std::size_t j = 0 ; j < groups.size() ; ++j)
       {
         printf("\n");
-        robot_state::JointStateGroup *jsg = state.getJointStateGroup(groups[j]);
-        printf("%s: Evaluating FK Default ...\n", groups[j].c_str());
-        std::string pname = groups[j] + ":FK Default";
-        for (int i = 0 ; i < N ; ++i)
-        {
-          moveit::tools::Profiler::Begin(pname);
-          jsg->setToDefaultValues();
-          moveit::tools::Profiler::End(pname);
-        }
-
+        const robot_model::JointModelGroup *jmg = robot_model->getJointModelGroup(groups[j]);
+        
         printf("%s: Evaluating FK Random ...\n", groups[j].c_str());
-        pname = groups[j] + ":FK Random";
+        std::string pname = groups[j] + ":FK Random";
         for (int i = 0 ; i < N ; ++i)
         {
           moveit::tools::Profiler::Begin(pname);
-          jsg->setToRandomValues();
+          state.setToRandomPositions(jmg);
+          state.update();
           moveit::tools::Profiler::End(pname);
         }
       }

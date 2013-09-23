@@ -1,6 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
- *
+ * 
+ *  Copyright (c) 2013, Ioan A. Sucan
  *  Copyright (c) 2012, Willow Garage, Inc.
  *  All rights reserved.
  *
@@ -98,7 +99,8 @@ public:
       ROS_FATAL_STREAM(error);
       throw std::runtime_error(error);
     }
-
+    joint_model_group_ = getRobotModel()->getJointModelGroup(opt.group_name_);
+    
     joint_state_target_.reset(new robot_state::RobotState(getRobotModel()));
     joint_state_target_->setToDefaultValues();
     active_target_ = JOINT;
@@ -111,35 +113,29 @@ public:
     planning_time_ = 5.0;
     initializing_constraints_ = false;
 
-    const robot_model::JointModelGroup *joint_model_group = getRobotModel()->getJointModelGroup(opt.group_name_);
-    if (joint_model_group)
-    {
-      if (joint_model_group->isChain())
-        end_effector_link_ = joint_model_group->getLinkModelNames().back();
-      pose_reference_frame_ = getRobotModel()->getModelFrame();
-
-      trajectory_event_publisher_ = node_handle_.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
-      attached_object_publisher_ = node_handle_.advertise<moveit_msgs::AttachedCollisionObject>(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_ATTACHED_COLLISION_OBJECT_TOPIC, 1, false);
-
-      current_state_monitor_ = getSharedStateMonitor(robot_model_, tf_);
-
-      move_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>(move_group::MOVE_ACTION, false));
-      waitForAction(move_action_client_, wait_for_server, move_group::MOVE_ACTION);
-
-      pick_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PickupAction>(move_group::PICKUP_ACTION, false));
-      waitForAction(pick_action_client_, wait_for_server, move_group::PICKUP_ACTION);
-
-      place_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PlaceAction>(move_group::PLACE_ACTION, false));
-      waitForAction(place_action_client_, wait_for_server, move_group::PLACE_ACTION);
-
-      execute_service_ = node_handle_.serviceClient<moveit_msgs::ExecuteKnownTrajectory>(move_group::EXECUTE_SERVICE_NAME);
-      query_service_ = node_handle_.serviceClient<moveit_msgs::QueryPlannerInterfaces>(move_group::QUERY_PLANNERS_SERVICE_NAME);
-      cartesian_path_service_ = node_handle_.serviceClient<moveit_msgs::GetCartesianPath>(move_group::CARTESIAN_PATH_SERVICE_NAME);
-
-      ROS_INFO_STREAM("Ready to take MoveGroup commands for group " << opt.group_name_ << ".");
-    }
-    else
-      ROS_ERROR("Unable to initialize MoveGroup interface.");
+    if (joint_model_group_->isChain())
+      end_effector_link_ = joint_model_group_->getLinkModelNames().back();
+    pose_reference_frame_ = getRobotModel()->getModelFrame();
+    
+    trajectory_event_publisher_ = node_handle_.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
+    attached_object_publisher_ = node_handle_.advertise<moveit_msgs::AttachedCollisionObject>(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_ATTACHED_COLLISION_OBJECT_TOPIC, 1, false);
+    
+    current_state_monitor_ = getSharedStateMonitor(robot_model_, tf_);
+    
+    move_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>(move_group::MOVE_ACTION, false));
+    waitForAction(move_action_client_, wait_for_server, move_group::MOVE_ACTION);
+    
+    pick_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PickupAction>(move_group::PICKUP_ACTION, false));
+    waitForAction(pick_action_client_, wait_for_server, move_group::PICKUP_ACTION);
+    
+    place_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PlaceAction>(move_group::PLACE_ACTION, false));
+    waitForAction(place_action_client_, wait_for_server, move_group::PLACE_ACTION);
+    
+    execute_service_ = node_handle_.serviceClient<moveit_msgs::ExecuteKnownTrajectory>(move_group::EXECUTE_SERVICE_NAME);
+    query_service_ = node_handle_.serviceClient<moveit_msgs::QueryPlannerInterfaces>(move_group::QUERY_PLANNERS_SERVICE_NAME);
+    cartesian_path_service_ = node_handle_.serviceClient<moveit_msgs::GetCartesianPath>(move_group::CARTESIAN_PATH_SERVICE_NAME);
+    
+    ROS_INFO_STREAM("Ready to take MoveGroup commands for group " << opt.group_name_ << ".");
   }
 
   template<typename T>
@@ -201,6 +197,11 @@ public:
     return robot_model_;
   }
 
+  const robot_model::JointModelGroup* getJointModelGroup() const
+  {
+    return joint_model_group_;
+  }
+  
   bool getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription &desc)
   {
     moveit_msgs::QueryPlannerInterfaces::Request req;
@@ -219,21 +220,80 @@ public:
     planner_id_ = planner_id;
   }
 
-  robot_state::JointStateGroup* getJointStateTarget()
+  robot_state::RobotState& getJointStateTarget()
   {
-    return joint_state_target_->getJointStateGroup(opt_.group_name_);
+    return *joint_state_target_;
   }
 
   void setStartState(const robot_state::RobotState &start_state)
   {
     considered_start_state_.reset(new robot_state::RobotState(start_state));
   }
-
+  
   void setStartStateToCurrentState()
   {
     considered_start_state_.reset();
   }
+  
+  robot_state::RobotStatePtr getStartState()
+  {
+    if (considered_start_state_)
+      return considered_start_state_;
+    else
+    {
+      robot_state::RobotStatePtr s;
+      getCurrentState(s);
+      return s;
+    }
+  }
+  
+  bool setJointValueTarget(const geometry_msgs::Pose &eef_pose, const std::string &end_effector_link, const std::string &frame, bool approx)
+  {
+    const std::string &eef = end_effector_link.empty() ? getEndEffectorLink() : end_effector_link;
+    // this only works if we have an end-effector
+    if (!eef.empty())
+    {
+      // first we set the goal to be the same as the start state
+      moveit::core::RobotStatePtr c = getStartState();
+      if (c)
+      {
+        setTargetType(JOINT);
+        c->enforceBounds();
+        getJointStateTarget() = *c;
+        if (!getJointStateTarget().satisfiesBounds(getGoalJointTolerance()))
+          return false;
+      }
+      else
+        return false;
 
+      // we may need to do approximate IK
+      kinematics::KinematicsQueryOptions o;
+      o.return_approximate_solution = approx;
+
+      // if no frame transforms are needed, call IK directly
+      if (frame.empty() || moveit::core::Transforms::sameFrame(frame, getRobotModel()->getModelFrame()))
+        return getJointStateTarget().setFromIK(getJointModelGroup(), eef_pose, eef, 0, 0.0, moveit::core::GroupStateValidityCallbackFn(), o);
+      else
+      {
+        if (c->knowsFrameTransform(frame))
+        {
+          // transform the pose first if possible, then do IK
+          const Eigen::Affine3d &t = getJointStateTarget().getFrameTransform(frame);
+          Eigen::Affine3d p;
+          tf::poseMsgToEigen(eef_pose, p);
+          return getJointStateTarget().setFromIK(getJointModelGroup(), t * p, eef, 0, 0.0, moveit::core::GroupStateValidityCallbackFn(), o);
+        }
+        else
+        {
+          logError("Unable to transform from frame '%s' to frame '%s'", frame.c_str(), getRobotModel()->getModelFrame().c_str());
+          return false;
+        }
+      }
+    }
+    else
+      return false;
+  }
+    
   void setEndEffectorLink(const std::string &end_effector)
   {
     end_effector_link_ = end_effector;
@@ -348,7 +408,7 @@ public:
     return active_target_;
   }
 
-  bool getCurrentState(robot_state::RobotStatePtr &current_state)
+  bool getCurrentState(robot_state::RobotStatePtr &current_state, double wait_seconds = 1.0)
   {
     if (!current_state_monitor_)
     {
@@ -360,7 +420,7 @@ public:
     if (!current_state_monitor_->isActive())
       current_state_monitor_->startStateMonitor();
 
-    if (!current_state_monitor_->waitForCurrentState(opt_.group_name_, 1.0))
+    if (!current_state_monitor_->waitForCurrentState(opt_.group_name_, wait_seconds))
       ROS_WARN("Joint values for monitored state are requested but the full state is not known");
 
     current_state = current_state_monitor_->getCurrentState();
@@ -370,19 +430,19 @@ public:
   /** \brief Place an object at one of the specified possible locations */
   bool place(const std::string &object, const std::vector<geometry_msgs::PoseStamped> &poses)
   {
-    std::vector<manipulation_msgs::PlaceLocation> locations;
+    std::vector<moveit_msgs::PlaceLocation> locations;
     for (std::size_t i = 0; i < poses.size(); ++i)
     {
-      manipulation_msgs::PlaceLocation location;
-      location.approach.direction.vector.z = -1.0;
-      location.retreat.direction.vector.x = -1.0;
-      location.approach.direction.header.frame_id = getRobotModel()->getModelFrame();
-      location.retreat.direction.header.frame_id = end_effector_link_;
+      moveit_msgs::PlaceLocation location;
+      location.pre_place_approach.direction.vector.z = -1.0;
+      location.post_place_retreat.direction.vector.x = -1.0;
+      location.pre_place_approach.direction.header.frame_id = getRobotModel()->getModelFrame();
+      location.post_place_retreat.direction.header.frame_id = end_effector_link_;
 
-      location.approach.min_distance = 0.1;
-      location.approach.desired_distance = 0.2;
-      location.retreat.min_distance = 0.0;
-      location.retreat.desired_distance = 0.2;
+      location.pre_place_approach.min_distance = 0.1;
+      location.pre_place_approach.desired_distance = 0.2;
+      location.post_place_retreat.min_distance = 0.0;
+      location.post_place_retreat.desired_distance = 0.2;
       // location.post_place_posture is filled by the pick&place lib with the getDetachPosture from the AttachedBody
 
       location.place_pose = poses[i];
@@ -392,7 +452,7 @@ public:
     return place(object, locations);
   }
 
-  bool place(const std::string &object, const std::vector<manipulation_msgs::PlaceLocation> &locations)
+  bool place(const std::string &object, const std::vector<moveit_msgs::PlaceLocation> &locations)
   {
     if (!place_action_client_)
     {
@@ -425,7 +485,7 @@ public:
     }
   }
 
-  bool pick(const std::string &object, const std::vector<manipulation_msgs::Grasp> &grasps)
+  bool pick(const std::string &object, const std::vector<moveit_msgs::Grasp> &grasps)
   {
     if (!pick_action_client_)
     {
@@ -551,11 +611,11 @@ public:
     {
       if (res.error_code.val == moveit_msgs::MoveItErrorCodes::SUCCESS)
       {
-    msg = res.solution;
-    return res.fraction;
+        msg = res.solution;
+        return res.fraction;
       }
       else
-    return -1.0;
+        return -1.0;
     }
     else
       return -1.0;
@@ -576,7 +636,7 @@ public:
     std::string l = link.empty() ? getEndEffectorLink() : link;
     if (l.empty())
     {
-      const std::vector<std::string> &links = getJointStateTarget()->getJointModelGroup()->getLinkModelNames();
+      const std::vector<std::string> &links = joint_model_group_->getLinkModelNames();
       if (!links.empty())
         l = links[0];
     }
@@ -601,7 +661,7 @@ public:
   {
     moveit_msgs::AttachedCollisionObject aco;
     // if name is a link
-    if (!name.empty() && getJointStateTarget()->getJointModelGroup()->hasLinkModel(name))
+    if (!name.empty() && joint_model_group_->hasLinkModel(name))
       aco.link_name = name;
     else
       aco.object.id = name;
@@ -609,7 +669,7 @@ public:
     if (aco.link_name.empty() && aco.object.id.empty())
     {
       // we only want to detach objects for this group
-      const std::vector<std::string> &lnames = getJointStateTarget()->getJointModelGroup()->getLinkModelNames();
+      const std::vector<std::string> &lnames = joint_model_group_->getLinkModelNames();
       for (std::size_t i = 0 ; i < lnames.size() ; ++i)
       {
         aco.link_name = lnames[i];
@@ -700,7 +760,7 @@ public:
     if (active_target_ == JOINT)
     {
       goal.request.goal_constraints.resize(1);
-      goal.request.goal_constraints[0] = kinematic_constraints::constructGoalConstraints(getJointStateTarget(), goal_joint_tolerance_);
+      goal.request.goal_constraints[0] = kinematic_constraints::constructGoalConstraints(getJointStateTarget(), joint_model_group_, goal_joint_tolerance_);
     }
     else
       if (active_target_ == POSE || active_target_ == POSITION || active_target_ == ORIENTATION)
@@ -875,7 +935,8 @@ private:
 
   // joint state goal
   robot_state::RobotStatePtr joint_state_target_;
-
+  const robot_model::JointModelGroup *joint_model_group_;
+  
   // pose goal;
   // for each link we have a set of possible goal locations;
   std::map<std::string, std::vector<geometry_msgs::PoseStamped> > pose_targets_;
@@ -959,25 +1020,25 @@ bool moveit::planning_interface::MoveGroup::plan(Plan &plan)
 
 bool moveit::planning_interface::MoveGroup::pick(const std::string &object)
 {
-  return impl_->pick(object, std::vector<manipulation_msgs::Grasp>());
+  return impl_->pick(object, std::vector<moveit_msgs::Grasp>());
 }
 
-bool moveit::planning_interface::MoveGroup::pick(const std::string &object, const manipulation_msgs::Grasp &grasp)
+bool moveit::planning_interface::MoveGroup::pick(const std::string &object, const moveit_msgs::Grasp &grasp)
 {
-  return impl_->pick(object, std::vector<manipulation_msgs::Grasp>(1, grasp));
+  return impl_->pick(object, std::vector<moveit_msgs::Grasp>(1, grasp));
 }
 
-bool moveit::planning_interface::MoveGroup::pick(const std::string &object, const std::vector<manipulation_msgs::Grasp> &grasps)
+bool moveit::planning_interface::MoveGroup::pick(const std::string &object, const std::vector<moveit_msgs::Grasp> &grasps)
 {
   return impl_->pick(object, grasps);
 }
 
 bool moveit::planning_interface::MoveGroup::place(const std::string &object)
 {
-  return impl_->place(object, std::vector<manipulation_msgs::PlaceLocation>());
+  return impl_->place(object, std::vector<moveit_msgs::PlaceLocation>());
 }
 
-bool moveit::planning_interface::MoveGroup::place(const std::string &object, const std::vector<manipulation_msgs::PlaceLocation> &locations)
+bool moveit::planning_interface::MoveGroup::place(const std::string &object, const std::vector<moveit_msgs::PlaceLocation> &locations)
 {
   return impl_->place(object, locations);
 }
@@ -993,7 +1054,7 @@ bool moveit::planning_interface::MoveGroup::place(const std::string &object, con
 }
 
 double moveit::planning_interface::MoveGroup::computeCartesianPath(const std::vector<geometry_msgs::Pose> &waypoints, double eef_step, double jump_threshold,
-                       moveit_msgs::RobotTrajectory &trajectory, bool avoid_collisions)
+                                                                   moveit_msgs::RobotTrajectory &trajectory, bool avoid_collisions)
 {
   return impl_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory, avoid_collisions);
 }
@@ -1001,6 +1062,14 @@ double moveit::planning_interface::MoveGroup::computeCartesianPath(const std::ve
 void moveit::planning_interface::MoveGroup::stop()
 {
   impl_->stop();
+}
+
+void moveit::planning_interface::MoveGroup::setStartState(const moveit_msgs::RobotState &start_state)
+{
+  robot_state::RobotStatePtr rs;
+  impl_->getCurrentState(rs);
+  robot_state::robotStateMsgToRobotState(start_state, *rs);
+  setStartState(*rs);
 }
 
 void moveit::planning_interface::MoveGroup::setStartState(const robot_state::RobotState &start_state)
@@ -1015,7 +1084,7 @@ void moveit::planning_interface::MoveGroup::setStartStateToCurrentState()
 
 void moveit::planning_interface::MoveGroup::setRandomTarget()
 {
-  impl_->getJointStateTarget()->setToRandomValues();
+  impl_->getJointStateTarget().setToRandomPositions();
   impl_->setTargetType(JOINT);
 }
 
@@ -1028,7 +1097,7 @@ bool moveit::planning_interface::MoveGroup::setNamedTarget(const std::string &na
   }
   else
   {
-    if (impl_->getJointStateTarget()->setToDefaultState(name))
+    if (impl_->getJointStateTarget().setToDefaultValues(impl_->getJointModelGroup(), name))
     {
       impl_->setTargetType(JOINT);
       return true;
@@ -1039,35 +1108,25 @@ bool moveit::planning_interface::MoveGroup::setNamedTarget(const std::string &na
 
 bool moveit::planning_interface::MoveGroup::setJointValueTarget(const std::vector<double> &joint_values)
 {
-  impl_->setTargetType(JOINT);
-  if (impl_->getJointStateTarget()->setVariableValues(joint_values))
-    return impl_->getJointStateTarget()->satisfiesBounds(impl_->getGoalJointTolerance());
-  else
+  if (joint_values.size() != impl_->getJointModelGroup()->getVariableCount())
     return false;
+  impl_->setTargetType(JOINT);
+  impl_->getJointStateTarget().setJointGroupPositions(impl_->getJointModelGroup(), joint_values);
+  return impl_->getJointStateTarget().satisfiesBounds(impl_->getJointModelGroup(), impl_->getGoalJointTolerance());
 }
 
 bool moveit::planning_interface::MoveGroup::setJointValueTarget(const std::map<std::string, double> &joint_values)
 {
   impl_->setTargetType(JOINT);
-  impl_->getJointStateTarget()->setVariableValues(joint_values);
-  return impl_->getJointStateTarget()->satisfiesBounds(impl_->getGoalJointTolerance());
+  impl_->getJointStateTarget().setVariablePositions(joint_values);
+  return impl_->getJointStateTarget().satisfiesBounds(impl_->getGoalJointTolerance());
 }
 
-bool moveit::planning_interface::MoveGroup::setJointValueTarget(const robot_state::RobotState &kinematic_state)
+bool moveit::planning_interface::MoveGroup::setJointValueTarget(const robot_state::RobotState &rstate)
 {
-  return setJointValueTarget(*kinematic_state.getJointStateGroup(getName()));
-}
-
-bool moveit::planning_interface::MoveGroup::setJointValueTarget(const robot_state::JointStateGroup &joint_state_group)
-{
-  std::map<std::string, double> variable_values;
-  joint_state_group.getVariableValues(variable_values);
-  return setJointValueTarget(variable_values);
-}
-
-bool moveit::planning_interface::MoveGroup::setJointValueTarget(const robot_state::JointState &joint_state)
-{
-  return setJointValueTarget(joint_state.getName(), joint_state.getVariableValues());
+  impl_->setTargetType(JOINT);
+  impl_->getJointStateTarget() = rstate;
+  return impl_->getJointStateTarget().satisfiesBounds(impl_->getGoalJointTolerance());
 }
 
 bool moveit::planning_interface::MoveGroup::setJointValueTarget(const std::string &joint_name, double value)
@@ -1079,23 +1138,59 @@ bool moveit::planning_interface::MoveGroup::setJointValueTarget(const std::strin
 bool moveit::planning_interface::MoveGroup::setJointValueTarget(const std::string &joint_name, const std::vector<double> &values)
 {
   impl_->setTargetType(JOINT);
-  robot_state::JointState *joint_state = impl_->getJointStateTarget()->getJointState(joint_name);
-  if (joint_state)
-    if (joint_state->setVariableValues(values))
-      return true;
+  const robot_model::JointModel *jm = impl_->getJointStateTarget().getJointModel(joint_name);
+  if (jm && jm->getVariableCount() == values.size())
+  {
+    impl_->getJointStateTarget().setJointPositions(jm, values);
+    return impl_->getJointStateTarget().satisfiesBounds(jm, impl_->getGoalJointTolerance());
+  }
   return false;
 }
 
 bool moveit::planning_interface::MoveGroup::setJointValueTarget(const sensor_msgs::JointState &state)
 {
   impl_->setTargetType(JOINT);
-  impl_->getJointStateTarget()->setVariableValues(state);
-  return impl_->getJointStateTarget()->satisfiesBounds(impl_->getGoalJointTolerance());
+  impl_->getJointStateTarget().setVariableValues(state);
+  return impl_->getJointStateTarget().satisfiesBounds(impl_->getGoalJointTolerance());
 }
 
-const robot_state::JointStateGroup& moveit::planning_interface::MoveGroup::getJointValueTarget() const
+bool moveit::planning_interface::MoveGroup::setJointValueTarget(const geometry_msgs::Pose &eef_pose, const std::string &end_effector_link)
 {
-  return *impl_->getJointStateTarget();
+  return impl_->setJointValueTarget(eef_pose, end_effector_link, "", false);
+}
+
+bool moveit::planning_interface::MoveGroup::setJointValueTarget(const geometry_msgs::PoseStamped &eef_pose, const std::string &end_effector_link)
+{
+  return impl_->setJointValueTarget(eef_pose.pose, end_effector_link, eef_pose.header.frame_id, false);
+}
+
+bool moveit::planning_interface::MoveGroup::setJointValueTarget(const Eigen::Affine3d &eef_pose, const std::string &end_effector_link)
+{ 
+  geometry_msgs::Pose msg;
+  tf::poseEigenToMsg(eef_pose, msg);
+  return setJointValueTarget(msg, end_effector_link);
+}
+
+bool moveit::planning_interface::MoveGroup::setApproximateJointValueTarget(const geometry_msgs::Pose &eef_pose, const std::string &end_effector_link)
+{
+  return impl_->setJointValueTarget(eef_pose, end_effector_link, "", true);
+}
+
+bool moveit::planning_interface::MoveGroup::setApproximateJointValueTarget(const geometry_msgs::PoseStamped &eef_pose, const std::string &end_effector_link)
+{
+  return impl_->setJointValueTarget(eef_pose.pose, end_effector_link, eef_pose.header.frame_id, true);
+}
+
+bool moveit::planning_interface::MoveGroup::setApproximateJointValueTarget(const Eigen::Affine3d &eef_pose, const std::string &end_effector_link)
+{ 
+  geometry_msgs::Pose msg;
+  tf::poseEigenToMsg(eef_pose, msg);
+  return setApproximateJointValueTarget(msg, end_effector_link);
+}
+
+const robot_state::RobotState& moveit::planning_interface::MoveGroup::getJointValueTarget() const
+{
+  return impl_->getJointStateTarget();
 }
 
 const std::string& moveit::planning_interface::MoveGroup::getEndEffectorLink() const
@@ -1358,20 +1453,14 @@ std::vector<double> moveit::planning_interface::MoveGroup::getCurrentJointValues
   robot_state::RobotStatePtr current_state;
   std::vector<double> values;
   if (impl_->getCurrentState(current_state))
-    current_state->getJointStateGroup(getName())->getVariableValues(values);
+    current_state->copyJointGroupPositions(getName(), values);
   return values;
 }
 
 std::vector<double> moveit::planning_interface::MoveGroup::getRandomJointValues()
 {
-  std::vector<double> backup;
-  impl_->getJointStateTarget()->getVariableValues(backup);
-
-  impl_->getJointStateTarget()->setToRandomValues();
   std::vector<double> r;
-  impl_->getJointStateTarget()->getVariableValues(r);
-
-  impl_->getJointStateTarget()->setVariableValues(backup);
+  impl_->getJointModelGroup()->getVariableRandomValues(impl_->getJointStateTarget().getRandomNumberGenerator(), r);
   return r;
 }
 
@@ -1387,10 +1476,10 @@ geometry_msgs::PoseStamped moveit::planning_interface::MoveGroup::getRandomPose(
     robot_state::RobotStatePtr current_state;
     if (impl_->getCurrentState(current_state))
     {
-      current_state->getJointStateGroup(getName())->setToRandomValues();
-      const robot_state::LinkState *ls = current_state->getLinkState(eef);
-      if (ls)
-        pose = ls->getGlobalLinkTransform();
+      current_state->setToRandomPositions(impl_->getJointModelGroup());
+      const robot_model::LinkModel *lm = current_state->getLinkModel(eef);
+      if (lm)
+        pose = current_state->getGlobalLinkTransform(lm);
     }
   }
   geometry_msgs::PoseStamped pose_msg;
@@ -1412,9 +1501,9 @@ geometry_msgs::PoseStamped moveit::planning_interface::MoveGroup::getCurrentPose
     robot_state::RobotStatePtr current_state;
     if (impl_->getCurrentState(current_state))
     {
-      const robot_state::LinkState *ls = current_state->getLinkState(eef);
-      if (ls)
-        pose = ls->getGlobalLinkTransform();
+      const robot_model::LinkModel *lm = current_state->getLinkModel(eef);
+      if (lm)
+        pose = current_state->getGlobalLinkTransform(lm);
     }
   }
   geometry_msgs::PoseStamped pose_msg;
@@ -1435,17 +1524,17 @@ std::vector<double> moveit::planning_interface::MoveGroup::getCurrentRPY(const s
     robot_state::RobotStatePtr current_state;
     if (impl_->getCurrentState(current_state))
     {
-      const robot_state::LinkState *ls = current_state->getLinkState(eef);
-      if (ls)
+      const robot_model::LinkModel *lm = current_state->getLinkModel(eef);
+      if (lm)
       {
-    result.resize(3);
-    tf::Matrix3x3 ptf;
-    tf::matrixEigenToTF(ls->getGlobalLinkTransform().rotation(), ptf);
-    tfScalar pitch, roll, yaw;
-    ptf.getRPY(roll, pitch, yaw);
-    result[0] = roll;
-    result[1] = pitch;
-    result[2] = yaw;
+        result.resize(3);
+        tf::Matrix3x3 ptf;
+        tf::matrixEigenToTF(current_state->getGlobalLinkTransform(lm).rotation(), ptf);
+        tfScalar pitch, roll, yaw;
+        ptf.getRPY(roll, pitch, yaw);
+        result[0] = roll;
+        result[1] = pitch;
+        result[2] = yaw;
       }
     }
   }
@@ -1454,12 +1543,12 @@ std::vector<double> moveit::planning_interface::MoveGroup::getCurrentRPY(const s
 
 const std::vector<std::string>& moveit::planning_interface::MoveGroup::getJoints() const
 {
-  return impl_->getJointStateTarget()->getJointModelGroup()->getJointModelNames();
+  return impl_->getJointModelGroup()->getJointModelNames();
 }
 
 unsigned int moveit::planning_interface::MoveGroup::getVariableCount() const
 {
-  return impl_->getJointStateTarget()->getJointModelGroup()->getVariableCount();
+  return impl_->getJointModelGroup()->getVariableCount();
 }
 
 robot_state::RobotStatePtr moveit::planning_interface::MoveGroup::getCurrentState()
