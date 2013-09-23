@@ -51,7 +51,7 @@ namespace
 {
 struct OrderGraspQuality
 {
-  OrderGraspQuality(const std::vector<manipulation_msgs::Grasp> &grasps) : grasps_(grasps)
+  OrderGraspQuality(const std::vector<moveit_msgs::Grasp> &grasps) : grasps_(grasps)
   {
   }
 
@@ -60,7 +60,7 @@ struct OrderGraspQuality
     return grasps_[a].grasp_quality > grasps_[b].grasp_quality;
   }
 
-  const std::vector<manipulation_msgs::Grasp> &grasps_;
+  const std::vector<moveit_msgs::Grasp> &grasps_;
 };
 }
 
@@ -113,14 +113,14 @@ bool PickPlan::plan(const planning_scene::PlanningSceneConstPtr &planning_scene,
   // construct common data for possible manipulation plans
   ManipulationPlanSharedDataPtr plan_data(new ManipulationPlanSharedData());
   ManipulationPlanSharedDataConstPtr const_plan_data = plan_data;
-  plan_data->planning_group_ = planning_group;
-  plan_data->end_effector_group_ = eef->getName();
-  plan_data->ik_link_name_ = ik_link;
+  plan_data->planning_group_ = planning_scene->getRobotModel()->getJointModelGroup(planning_group);
+  plan_data->end_effector_group_ = eef;
+  plan_data->ik_link_ = planning_scene->getRobotModel()->getLinkModel(ik_link);
   plan_data->timeout_ = endtime;
   plan_data->path_constraints_ = goal.path_constraints;
   plan_data->planner_id_ = goal.planner_id;
   plan_data->minimize_object_distance_ = goal.minimize_object_distance;
-  plan_data->max_goal_sampling_attempts_ = std::max(2u, planning_scene->getRobotModel()->getJointModelGroup(planning_group)->getDefaultIKAttempts());
+  plan_data->max_goal_sampling_attempts_ = std::max(2u, plan_data->planning_group_->getDefaultIKAttempts());
   moveit_msgs::AttachedCollisionObject &attach_object_msg = plan_data->diff_attached_object_;
 
   // construct the attached object message that will change the world to what it would become after a pick
@@ -165,11 +165,11 @@ bool PickPlan::plan(const planning_scene::PlanningSceneConstPtr &planning_scene,
   for (std::size_t i = 0 ; i < goal.possible_grasps.size() ; ++i)
   {
     ManipulationPlanPtr p(new ManipulationPlan(const_plan_data));
-    const manipulation_msgs::Grasp &g = goal.possible_grasps[grasp_order[i]];
-    p->approach_ = g.approach;
-    p->retreat_ = g.retreat;
+    const moveit_msgs::Grasp &g = goal.possible_grasps[grasp_order[i]];
+    p->approach_ = g.pre_grasp_approach;
+    p->retreat_ = g.post_grasp_retreat;
     p->goal_pose_ = g.grasp_pose;
-    p->id_ = i;
+    p->id_ = grasp_order[i];
     // if no frame of reference was specified, assume the transform to be in the reference frame of the object
     if (p->goal_pose_.header.frame_id.empty())
       p->goal_pose_.header.frame_id = goal.target_name;
