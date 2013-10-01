@@ -1,0 +1,12 @@
+Source: ros-hydro-moveit-ros-warehouse
+Section: misc
+Priority: extra
+Maintainer: Ioan Sucan <isucan@willowgarage.com>
+Build-Depends: debhelper (>= 7.0.50~), ros-hydro-catkin, ros-hydro-moveit-ros-planning, ros-hydro-rosconsole, ros-hydro-roscpp, ros-hydro-tf, ros-hydro-warehouse-ros
+Homepage: http://moveit.ros.org
+Standards-Version: 3.9.2
+
+Package: ros-hydro-moveit-ros-warehouse
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-hydro-moveit-ros-planning, ros-hydro-rosconsole, ros-hydro-roscpp, ros-hydro-tf, ros-hydro-warehouse-ros
+Description: Components of MoveIt connecting to MongoDB
