@@ -1,0 +1,58 @@
+ros-hydro-moveit-ros-move-group (0.5.7-0quantal) quantal; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Mon, 30 Sep 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.5.6-0quantal) quantal; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 25 Sep 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.5.5-0quantal) quantal; urgency=high
+
+  * porting to new RobotState API
+  * more console output
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sun, 22 Sep 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.5.4-0quantal) quantal; urgency=high
+
+  * make headers and author definitions aligned the same way; white space fixes
+  * Dependency for move_group_capabilities_base fixed.
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 13 Aug 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.5.2-0quantal) quantal; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sun, 14 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.5.1-0quantal) quantal; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sat, 13 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.5.0-0quantal) quantal; urgency=high
+
+  * white space fixes (tabs are now spaces)
+  * port to new base class for planning_interface (using planning contexts)
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Thu, 11 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.4.5-0quantal) quantal; urgency=high
+
+  * Fixed for moveit_msgs/JointLimits.h no such file or directory
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 02 Jul 2013 21:00:00 -0000
+
+ros-hydro-moveit-ros-move-group (0.4.4-0quantal) quantal; urgency=high
+
+  * fix #259 <https://github.com/ros-planning/moveit_ros/issues/259> and #260 <https://github.com/ros-planning/moveit_ros/issues/260>
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 25 Jun 2013 21:00:00 -0000
+
+
