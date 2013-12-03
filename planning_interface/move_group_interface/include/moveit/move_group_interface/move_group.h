@@ -91,6 +91,9 @@ public:
 
     /// The trajectory of the robot (may not contain joints that are the same as for the start_state_)
     moveit_msgs::RobotTrajectory trajectory_;
+
+    /// The amount of time it took to generate the plan
+    double planning_time_;
   };
 
   /** \brief Construct a client for the MoveGroup action using a specified set of options \e opt. Optionally, specify a TF instance to use.
@@ -175,7 +178,7 @@ public:
   void setSupportSurfaceName(const std::string &name);
 
   /**
-   * \defgroup set_joint_goal Setting a joint state target (goal)
+   * \name Setting a joint state target (goal)
    */
   /**@{*/
 
@@ -236,7 +239,7 @@ public:
 
 
   /**
-   * \defgroup set_pose_goal Setting a pose target (goal)
+   * \name Setting a pose target (goal)
    */
   /**@{*/
 
@@ -316,7 +319,7 @@ public:
   /**@}*/
 
   /**
-   * \defgroup plan_and_exec Planning a path from the start position to the Target (goal) position, and executing that plan.
+   * \name Planning a path from the start position to the Target (goal) position, and executing that plan.
    */
   /**@{*/
 
@@ -360,7 +363,7 @@ public:
   /**@}*/
 
   /**
-   * \defgroup high_level High level actions that trigger a sequence of plans and actions.
+   * \name High level actions that trigger a sequence of plans and actions.
    */
   /**@{*/
 
@@ -413,7 +416,7 @@ public:
   /**@}*/
 
   /**
-   * \defgroup query_robot_state Query current robot state
+   * \name Query current robot state
    */
   /**@{*/
 
@@ -448,7 +451,7 @@ public:
   /**@}*/
 
   /**
-   * \defgroup named_joint_goals Manage named joint configurations
+   * \name Manage named joint configurations
    */
   /**@{*/
 
@@ -470,7 +473,7 @@ public:
   /**@}*/
 
   /**
-   * \defgroup move_group_interface_constraints_management Manage planning constraints
+   * \name Manage planning constraints
    */
   /**@{*/
 
