@@ -62,7 +62,6 @@
 namespace benchmark_tool
 {
 
-
 void MainWindow::createGoalAtPose(const std::string &name, const Eigen::Affine3d &pose)
 {
   goals_initial_pose_.insert(std::pair<std::string, Eigen::Affine3d>(name, pose));
@@ -78,48 +77,63 @@ void MainWindow::createGoalAtPose(const std::string &name, const Eigen::Affine3d
   // Connect signals
   goal_pose->connect(this, SLOT( goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback &) ));
 
-  //If connected to a database, store the constraint
+  //If connected to a database, save all the goals back to the database
   if (constraints_storage_)
   {
-    moveit_msgs::Constraints c;
-    c.name = name;
+    saveGoalsToDB();
+  }
+}
 
-    shape_msgs::SolidPrimitive sp;
-    sp.type = sp.BOX;
-    sp.dimensions.resize(3, std::numeric_limits<float>::epsilon() * 10.0);
+void MainWindow::saveGoalsToDB()
+{
+  if (constraints_storage_)
+  {
+    //Convert all goal pose markers into constraints and store them
+    for (GoalPoseMap::iterator it = goal_poses_.begin(); it != goal_poses_.end(); ++it)
+    {
+      moveit_msgs::Constraints constraints;
+      constraints.name = it->first;
 
-    moveit_msgs::PositionConstraint pc;
-    pc.constraint_region.primitives.push_back(sp);
-    geometry_msgs::Pose posemsg;
-    posemsg.position.x = goal_pose->imarker->getPosition().x;
-    posemsg.position.y = goal_pose->imarker->getPosition().y;
-    posemsg.position.z = goal_pose->imarker->getPosition().z;
-    posemsg.orientation.x = 0.0;
-    posemsg.orientation.y = 0.0;
-    posemsg.orientation.z = 0.0;
-    posemsg.orientation.w = 1.0;
-    pc.constraint_region.primitive_poses.push_back(posemsg);
-    pc.weight = 1.0;
-    c.position_constraints.push_back(pc);
+      shape_msgs::SolidPrimitive sp;
+      sp.type = sp.BOX;
+      sp.dimensions.resize(3, std::numeric_limits<float>::epsilon() * 10.0);
 
-    moveit_msgs::OrientationConstraint oc;
-    oc.orientation.x = goal_pose->imarker->getOrientation().x;
-    oc.orientation.y = goal_pose->imarker->getOrientation().y;
-    oc.orientation.z = goal_pose->imarker->getOrientation().z;
-    oc.orientation.w = goal_pose->imarker->getOrientation().w;
-    oc.absolute_x_axis_tolerance = oc.absolute_y_axis_tolerance =
+      moveit_msgs::PositionConstraint pc;
+      pc.header.frame_id = scene_display_->getRobotModel()->getModelFrame();
+      pc.link_name = robot_interaction_->getActiveEndEffectors()[0].parent_link; // TODO this is hacky i think
+      pc.constraint_region.primitives.push_back(sp);
+      geometry_msgs::Pose posemsg;
+      it->second->getPosition(posemsg.position);
+      posemsg.orientation.x = 0.0;
+      posemsg.orientation.y = 0.0;
+      posemsg.orientation.z = 0.0;
+      posemsg.orientation.w = 1.0;
+      pc.constraint_region.primitive_poses.push_back(posemsg);
+      pc.weight = 1.0;
+      constraints.position_constraints.push_back(pc);
+
+      moveit_msgs::OrientationConstraint oc;
+      oc.header.frame_id = scene_display_->getRobotModel()->getModelFrame();
+      oc.link_name = robot_interaction_->getActiveEndEffectors()[0].parent_link; // TODO this is hacky i think
+      it->second->getOrientation(oc.orientation);
+      oc.absolute_x_axis_tolerance = oc.absolute_y_axis_tolerance =
         oc.absolute_z_axis_tolerance = std::numeric_limits<float>::epsilon() * 10.0;
-    oc.weight = 1.0;
-    c.orientation_constraints.push_back(oc);
+      oc.weight = 1.0;
+      constraints.orientation_constraints.push_back(oc);
 
-    try
-    {
-      constraints_storage_->addConstraints(c);
+      try
+      {
+        constraints_storage_->addConstraints(constraints);
+      }
+      catch (std::runtime_error &ex)
+      {
+        ROS_ERROR("Cannot save constraint: %s", ex.what());
+      }
     }
-    catch (std::runtime_error &ex)
-    {
-      ROS_ERROR("Cannot save constraint on database: %s", ex.what());
-    }
+  }
+  else
+  {
+    QMessageBox::warning(this, "Warning", "Not connected to a database.");
   }
 }
 
@@ -156,6 +170,7 @@ void MainWindow::createGoalPoseButtonClicked(void)
       else
       {
         //Create the new goal pose at the current eef pose, and attach an interactive marker to it
+        scene_display_->getPlanningSceneRW()->getCurrentStateNonConst().update();
         Eigen::Affine3d tip_pose = scene_display_->getPlanningSceneRO()->getCurrentState().getGlobalLinkTransform(robot_interaction_->getActiveEndEffectors()[0].parent_link);
         createGoalAtPose(name, tip_pose);
       }
@@ -309,51 +324,7 @@ void MainWindow::loadGoalsFromDBButtonClicked(void)
 
 void MainWindow::saveGoalsOnDBButtonClicked(void)
 {
-  if (constraints_storage_)
-  {
-    //Convert all goal pose markers into constraints and store them
-    for (GoalPoseMap::iterator it = goal_poses_.begin(); it != goal_poses_.end(); ++it)
-    {
-      moveit_msgs::Constraints c;
-      c.name = it->first;
-
-      shape_msgs::SolidPrimitive sp;
-      sp.type = sp.BOX;
-      sp.dimensions.resize(3, std::numeric_limits<float>::epsilon() * 10.0);
-
-      moveit_msgs::PositionConstraint pc;
-      pc.constraint_region.primitives.push_back(sp);
-      geometry_msgs::Pose posemsg;
-      it->second->getPosition(posemsg.position);
-      posemsg.orientation.x = 0.0;
-      posemsg.orientation.y = 0.0;
-      posemsg.orientation.z = 0.0;
-      posemsg.orientation.w = 1.0;
-      pc.constraint_region.primitive_poses.push_back(posemsg);
-      pc.weight = 1.0;
-      c.position_constraints.push_back(pc);
-
-      moveit_msgs::OrientationConstraint oc;
-      it->second->getOrientation(oc.orientation);
-      oc.absolute_x_axis_tolerance = oc.absolute_y_axis_tolerance =
-        oc.absolute_z_axis_tolerance = std::numeric_limits<float>::epsilon() * 10.0;
-      oc.weight = 1.0;
-      c.orientation_constraints.push_back(oc);
-
-      try
-      {
-        constraints_storage_->addConstraints(c);
-      }
-      catch (std::runtime_error &ex)
-      {
-        ROS_ERROR("Cannot save constraint: %s", ex.what());
-      }
-    }
-  }
-  else
-  {
-    QMessageBox::warning(this, "Warning", "Not connected to a database.");
-  }
+  saveGoalsToDB();
 }
 
 void MainWindow::deleteGoalsOnDBButtonClicked(void)
@@ -588,8 +559,6 @@ void MainWindow::computeGoalPoseDoubleClicked(QListWidgetItem * item)
 /* Receives feedback from the interactive marker attached to a goal pose */
 void MainWindow::goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback &feedback)
 {
-  static Eigen::Affine3d initial_pose_eigen;
-
   if (feedback.event_type == feedback.BUTTON_CLICK)
   {
     //Unselect all but the clicked one. Needs to be in order, first unselect, then select.
@@ -610,24 +579,43 @@ void MainWindow::goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback 
   }
   else if (feedback.event_type == feedback.MOUSE_DOWN)
   {
-    //Store current poses
-    goals_dragging_initial_pose_.clear();
+    // First check to see if this mouse_down is happening on an
+    // already-selected goal pose.  A mouse_down event is sent even if
+    // the gesture turns out to be nothing but a click.
+    bool this_goal_already_selected = false;
     for (GoalPoseMap::iterator it = goal_poses_.begin(); it != goal_poses_.end(); ++it)
     {
-      if (it->second->isSelected() && it->second->isVisible())
+      if (it->second->isSelected() &&
+          it->second->isVisible() &&
+          it->second->imarker->getName() == feedback.marker_name)
       {
-        Eigen::Affine3d pose(Eigen::Quaterniond(it->second->imarker->getOrientation().w, it->second->imarker->getOrientation().x,
-                                                it->second->imarker->getOrientation().y, it->second->imarker->getOrientation().z));
-        pose(0,3) = it->second->imarker->getPosition().x;
-        pose(1,3) = it->second->imarker->getPosition().y;
-        pose(2,3) = it->second->imarker->getPosition().z;
-        goals_dragging_initial_pose_.insert(std::pair<std::string, Eigen::Affine3d>(it->second->imarker->getName(), pose));
-
-        if (it->second->imarker->getName() == feedback.marker_name)
-          initial_pose_eigen = pose;
+        this_goal_already_selected = true;
       }
     }
-    goal_pose_dragging_=true;
+
+    // If this is a mouse-down on an already-selected goal pose, we
+    // want to initialize dragging all selected goal poses at the same
+    // time.
+    if(this_goal_already_selected) {
+      //Store current poses
+      goals_dragging_initial_pose_.clear();
+      for (GoalPoseMap::iterator it = goal_poses_.begin(); it != goal_poses_.end(); ++it)
+      {
+        if (it->second->isSelected() && it->second->isVisible())
+        {
+          Eigen::Affine3d pose(Eigen::Quaterniond(it->second->imarker->getOrientation().w, it->second->imarker->getOrientation().x,
+                                                  it->second->imarker->getOrientation().y, it->second->imarker->getOrientation().z));
+          pose(0,3) = it->second->imarker->getPosition().x;
+          pose(1,3) = it->second->imarker->getPosition().y;
+          pose(2,3) = it->second->imarker->getPosition().z;
+          goals_dragging_initial_pose_.insert(std::pair<std::string, Eigen::Affine3d>(it->second->imarker->getName(), pose));
+
+          if (it->second->imarker->getName() == feedback.marker_name)
+            drag_initial_pose_ = pose;
+        }
+      }
+      goal_pose_dragging_=true;
+    }
   }
   else if (feedback.event_type == feedback.POSE_UPDATE && goal_pose_dragging_)
   {
@@ -635,7 +623,7 @@ void MainWindow::goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback 
     Eigen::Affine3d current_pose_eigen;
     tf::poseMsgToEigen(feedback.pose, current_pose_eigen);
 
-    Eigen::Affine3d current_wrt_initial = initial_pose_eigen.inverse() * current_pose_eigen;
+    Eigen::Affine3d current_wrt_initial = drag_initial_pose_.inverse() * current_pose_eigen;
 
     //Display the pose in the ui
     Eigen::Vector3d v = current_pose_eigen.linear().eulerAngles(0,1,2);
@@ -655,7 +643,7 @@ void MainWindow::goalPoseFeedback(visualization_msgs::InteractiveMarkerFeedback 
       {
         visualization_msgs::InteractiveMarkerPose impose;
 
-        Eigen::Affine3d newpose = initial_pose_eigen * current_wrt_initial * initial_pose_eigen.inverse() * goals_dragging_initial_pose_[it->second->imarker->getName()];
+        Eigen::Affine3d newpose = drag_initial_pose_ * current_wrt_initial * drag_initial_pose_.inverse() * goals_dragging_initial_pose_[it->second->imarker->getName()];
         tf::poseEigenToMsg(newpose, impose.pose);
 
         it->second->imarker->setPose(Ogre::Vector3(impose.pose.position.x, impose.pose.position.y, impose.pose.position.z),
@@ -731,6 +719,38 @@ void MainWindow::checkIfGoalReachable(const std::string &goal_name, bool update_
   setStatusFromBackground(STATUS_INFO, "");
 }
 
+bool MainWindow::isGroupCollidingWithWorld(robot_state::RobotState& robot_state, const std::string& group_name)
+{
+  collision_detection::AllowedCollisionMatrix acm( scene_display_->getPlanningSceneRO()->getAllowedCollisionMatrix() );
+  // get link names in group_name
+  const std::vector<std::string>& group_link_names =
+    scene_display_->getRobotModel()->getJointModelGroup(group_name)->getLinkModelNamesWithCollisionGeometry();
+
+  // Create a set of links which is all links minus links in the group.
+  const std::vector<std::string>& all_links = scene_display_->getRobotModel()->getLinkModelNames();
+  std::set<std::string> link_set(all_links.begin(), all_links.end());
+  for(size_t i = 0; i < group_link_names.size(); i++ )
+  {
+    link_set.erase(group_link_names[i]);
+  }
+
+  // for each link name in the set,
+  for(std::set<std::string>::const_iterator it = link_set.begin(); it != link_set.end(); it++ )
+  {
+    // allow collisions with link.
+    acm.setEntry(*it, true);
+  }
+
+  // call checkCollision();
+  collision_detection::CollisionRequest req;
+  req.verbose = false;
+  collision_detection::CollisionResult  res;
+  scene_display_->getPlanningSceneRO()->checkCollision(req, res, robot_state, acm);
+
+  // return result boolean.
+  return res.collision;
+}
+
 void MainWindow::checkIfGoalInCollision(const std::string & goal_name)
 {
   if ( goal_poses_.find(goal_name) == goal_poses_.end())
@@ -748,7 +768,7 @@ void MainWindow::checkIfGoalInCollision(const std::string & goal_name)
 
   robot_state::RobotState ks(scene_display_->getPlanningSceneRO()->getCurrentState());
   ks.updateStateWithLinkAt(eef.parent_link, marker_pose_eigen);
-  bool in_collision = scene_display_->getPlanningSceneRO()->isStateColliding(ks, eef.eef_group);
+  bool in_collision = isGroupCollidingWithWorld(ks, eef.eef_group);
 
   if ( in_collision )
   {
@@ -808,6 +828,7 @@ void MainWindow::copySelectedGoalPoses(void)
     std::stringstream ss;
     ss << scene_name.c_str() << "_pose_" << std::setfill('0') << std::setw(4) << goal_poses_.size();
 
+    scene_display_->getPlanningSceneRW()->getCurrentStateNonConst().update();
     Eigen::Affine3d tip_pose = scene_display_->getPlanningSceneRO()->getCurrentState().getGlobalLinkTransform(robot_interaction_->getActiveEndEffectors()[0].parent_link);
     geometry_msgs::Pose marker_pose;
     marker_pose.position.x = goal_poses_[name]->imarker->getPosition().x;
