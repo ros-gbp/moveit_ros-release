@@ -2,6 +2,15 @@
 Changelog for package moveit_ros_visualization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.12 (2014-01-03)
+-------------------
+
+0.5.11 (2014-01-03)
+-------------------
+* Added back-link to tutorial and updated moveit website URL.
+* Ported MoveIt RViz plugin tutorial to sphinx.
+* Contributors: Dave Hershberger
+
 0.5.10 (2013-12-08)
 -------------------
 
