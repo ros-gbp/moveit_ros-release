@@ -1,0 +1,100 @@
+ros-hydro-moveit-ros-visualization (0.5.12-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Fri, 03 Jan 2014 08:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.11-0raring) raring; urgency=high
+
+  * Added back-link to tutorial and updated moveit website URL.
+  * Ported MoveIt RViz plugin tutorial to sphinx.
+  * Contributors: Dave Hershberger
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Fri, 03 Jan 2014 08:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.10-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sun, 08 Dec 2013 08:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.9-0raring) raring; urgency=high
+
+  * correcting maintainer email
+  * Fixed an occasional crash bug in rviz plugin caused by gui calls in non-gui thread.
+  * Added planning feedback to gui, refactored states tab
+  * Stored states are auto loaded when warehouse database is connected
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 03 Dec 2013 08:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.8-0raring) raring; urgency=high
+
+  * Added option to rviz plugin to show scene robot collision geometry
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Fri, 11 Oct 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.7-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Tue, 01 Oct 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.6-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Thu, 26 Sep 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.5-0raring) raring; urgency=high
+
+  * Fix crash when the destructor is called before onInitialize
+  * remove call for getting the combined joint limits of a group
+  * bugfixes
+  * porting to new RobotState API
+  * use new helper class from rviz for rendering meshes
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Mon, 23 Sep 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.4-0raring) raring; urgency=high
+
+  * Added manipulation tab, added plan id to manipulation request
+  * make headers and author definitions aligned the same way; white space fixes
+  * using action client for object recognition instead of topic
+  * move background_processing lib to core
+  * display collision pairs instead of simply colliding links
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 14 Aug 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.2-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Mon, 15 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.1-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sun, 14 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.5.0-0raring) raring; urgency=high
+
+  * fix #275 <https://github.com/ros-planning/moveit_ros/issues/275>
+  * white space fixes (tabs are now spaces)
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Fri, 12 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.4.5-0raring) raring; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 03 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-visualization (0.4.4-0raring) raring; urgency=high
+
+  * remove root_link_name property
+  * add status tab to Rviz plugin
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 26 Jun 2013 07:00:00 -0000
+
+
