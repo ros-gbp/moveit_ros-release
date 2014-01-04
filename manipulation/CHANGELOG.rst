@@ -2,6 +2,14 @@
 Changelog for package moveit_ros_manipulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.12 (2014-01-03)
+-------------------
+
+0.5.11 (2014-01-03)
+-------------------
+* Fixed internal comment.
+* Contributors: Dave Hershberger
+
 0.5.10 (2013-12-08)
 -------------------
 
