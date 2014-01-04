@@ -1,0 +1,93 @@
+ros-hydro-moveit-ros-manipulation (0.5.12-0precise) precise; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@gmail.com>  Fri, 03 Jan 2014 08:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.11-0precise) precise; urgency=high
+
+  * Fixed internal comment.
+  * Contributors: Dave Hershberger
+
+ -- Ioan Sucan <isucan@gmail.com>  Fri, 03 Jan 2014 08:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.10-0precise) precise; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@gmail.com>  Sun, 08 Dec 2013 08:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.9-0precise) precise; urgency=high
+
+  * corrected maintainers email
+  * PickPlace: Added comments, renamed variables to be more specific
+  * use ROS_ERROR instead of logError
+
+ -- Ioan Sucan <isucan@gmail.com>  Tue, 03 Dec 2013 08:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.8-0precise) precise; urgency=high
+
+  * fix #331 <https://github.com/ros-planning/moveit_ros/issues/331>.
+  * try to identify the eef and group based on the attached object name
+
+ -- Ioan Sucan <isucan@gmail.com>  Fri, 11 Oct 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.7-0precise) precise; urgency=high
+
+  * use the fact we know an eef must be defined for the place action to simplify code
+  * abort place if eef cannot be determined, fixes #325 <https://github.com/ros-planning/moveit_ros/issues/325>.
+  * fix segfault in approach translate
+
+ -- Ioan Sucan <isucan@gmail.com>  Tue, 01 Oct 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.6-0precise) precise; urgency=high
+
+  * dep on manipulation_msgs needs to be added here
+
+ -- Ioan Sucan <isucan@gmail.com>  Thu, 26 Sep 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.5-0precise) precise; urgency=high
+
+  * use new messages for pick & place
+  * porting to new RobotState API
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Mon, 23 Sep 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.4-0precise) precise; urgency=high
+
+  * make headers and author definitions aligned the same way; white space fixes
+  * adding manipulation tab, fixed bugs in planning scene interface
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 14 Aug 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.2-0precise) precise; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Mon, 15 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.1-0precise) precise; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Sun, 14 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.5.0-0precise) precise; urgency=high
+
+  * white space fixes (tabs are now spaces)
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Fri, 12 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.4.5-0precise) precise; urgency=high
+
+
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 03 Jul 2013 07:00:00 -0000
+
+ros-hydro-moveit-ros-manipulation (0.4.4-0precise) precise; urgency=high
+
+  * bugfixes
+
+ -- Ioan Sucan <isucan@willowgarage.com>  Wed, 26 Jun 2013 07:00:00 -0000
+
+
