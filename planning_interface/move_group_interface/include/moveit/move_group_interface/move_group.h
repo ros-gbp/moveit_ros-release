@@ -67,9 +67,11 @@ public:
   struct Options
   {
     Options(const std::string &group_name,
-            const std::string &desc = ROBOT_DESCRIPTION) :
+            const std::string &desc = ROBOT_DESCRIPTION,
+	    const ros::NodeHandle &node_handle = ros::NodeHandle()) :
       group_name_(group_name),
-      robot_description_(desc)
+      robot_description_(desc),
+      node_handle_(node_handle)
     {
     }
 
@@ -81,6 +83,8 @@ public:
 
     /// Optionally, an instance of the RobotModel to use can be also specified
     robot_model::RobotModelConstPtr robot_model_;
+
+    ros::NodeHandle node_handle_;
   };
 
   /// The representation of a motion plan (as ROS messasges)
@@ -116,7 +120,10 @@ public:
   /** \brief Get the name of the frame in which the robot is planning */
   const std::string& getPlanningFrame() const;
 
-  /** \brief Get the joints this instance operates on */
+  /** \brief Get only the active (actuated) joints this instance operates on */
+  const std::vector<std::string>& getActiveJoints() const;
+
+  /** \brief Get all the joints this instance operates on (including fixed joints)*/
   const std::vector<std::string>& getJoints() const;
 
   /** \brief Get the number of variables used to describe the state of this group. This is larger or equal to the number of DOF. */
