@@ -1,0 +1,12 @@
+Source: ros-indigo-moveit-ros-perception
+Section: misc
+Priority: extra
+Maintainer: Ioan Sucan <isucan@google.com>
+Build-Depends: debhelper (>= 7.0.50~), freeglut3-dev, libgl1-mesa-dev, libglew-dev, libglu1-mesa-dev, libopencv-dev, ros-indigo-catkin, ros-indigo-image-transport, ros-indigo-message-filters, ros-indigo-moveit-core, ros-indigo-octomap, ros-indigo-pcl-conversions, ros-indigo-pluginlib, ros-indigo-rosconsole, ros-indigo-roscpp, ros-indigo-tf, ros-indigo-tf-conversions, ros-indigo-urdf
+Homepage: http://moveit.ros.org
+Standards-Version: 3.9.2
+
+Package: ros-indigo-moveit-ros-perception
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, freeglut3-dev, libgl1-mesa-dev, libglew-dev, libglu1-mesa-dev, libopencv-dev, ros-indigo-image-transport, ros-indigo-message-filters, ros-indigo-moveit-core, ros-indigo-octomap, ros-indigo-pcl-conversions, ros-indigo-pluginlib, ros-indigo-rosconsole, ros-indigo-roscpp, ros-indigo-tf, ros-indigo-tf-conversions, ros-indigo-urdf
+Description: Components of MoveIt connecting to perception
