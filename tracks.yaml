@@ -51,7 +51,7 @@ tracks:
     devel_branch: hydro-devel
     last_version: 0.5.16
     name: upstream_indigo
-    patches: indigo
+    patches: null
     release_inc: '0'
     release_repo_url: null
     release_tag: :{version}
