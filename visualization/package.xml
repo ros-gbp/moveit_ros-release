@@ -1,6 +1,6 @@
 <package>
   <name>moveit_ros_visualization</name>
-  <version>0.5.17</version>
+  <version>0.5.18</version>
   <description>Components of MoveIt that offer visualization</description>
 
   <author email="isucan@google.com">Ioan Sucan</author> 
@@ -16,6 +16,7 @@
   <url type="repository">https://github.com/ros-planning/moveit_ros</url>
 
   <buildtool_depend>catkin</buildtool_depend> 
+  <buildtool_depend>pkg-config</buildtool_depend>
 
   <build_depend>roscpp</build_depend>
   <build_depend>rviz</build_depend>
