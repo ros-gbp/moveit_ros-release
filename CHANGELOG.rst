@@ -2,6 +2,35 @@
 Changelog for package moveit_ros_perception
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.19 (2014-06-23)
+-------------------
+* Fix [-Wreorder] warning.
+* Address [cppcheck: duplicateExpression] error.
+  The existing check for NaNs is in fact correct for IEEE-compliant floating
+  numbers, i.e., if (a == a) then a is not a NaN, but confuses static code
+  analyzers. This fix instead uses the isnan(a) macro from <cmath>.
+* Prevent future conflicts between STL and Boost.
+  mesh_filter_base.cpp was doing:
+  using namespace std;
+  using namespace boost;
+  Considering that Boost is a testing ground for future standard additions,
+  bringing the two namespaces into scope in the same translation unit is not
+  the best idea. In this particular file, there's a potential conflict between
+  C++'s and Boost's shared_ptr implementation.
+* Make creation of std::pairs future-compiler-proof.
+  Details:
+  http://stackoverflow.com/questions/14623958/breaking-change-in-c11-with-make-pair-ty1-val1-const-ty2-val2
+* Contributors: Adolfo Rodriguez Tsouroukdissian
+
+0.5.18 (2014-03-23)
+-------------------
+
+0.5.17 (2014-03-22)
+-------------------
+* update build system for ROS indigo
+* update maintainer e-mail
+* Contributors: Ioan Sucan
+
 0.5.16 (2014-02-27)
 -------------------
 
