@@ -1,0 +1,12 @@
+Source: ros-hydro-moveit-ros
+Section: misc
+Priority: extra
+Maintainer: Ioan Sucan <isucan@gmail.com>
+Build-Depends: debhelper (>= 9.0.0), ros-hydro-catkin
+Homepage: http://moveit.ros.org
+Standards-Version: 3.9.2
+
+Package: ros-hydro-moveit-ros
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-hydro-moveit-ros-benchmarks, ros-hydro-moveit-ros-benchmarks-gui, ros-hydro-moveit-ros-manipulation, ros-hydro-moveit-ros-move-group, ros-hydro-moveit-ros-perception, ros-hydro-moveit-ros-planning, ros-hydro-moveit-ros-planning-interface, ros-hydro-moveit-ros-robot-interaction, ros-hydro-moveit-ros-visualization, ros-hydro-moveit-ros-warehouse
+Description: Components of MoveIt that use ROS
