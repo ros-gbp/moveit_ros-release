@@ -2,6 +2,25 @@
 Changelog for package moveit_ros_manipulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.19 (2014-06-23)
+-------------------
+* fixes `#461 <https://github.com/ros-planning/moveit_ros/issues/461>` and a potential segfault
+* Now check if there is a time for the gripper trajectory.
+  If there is a time, use that one on the gripper trajectory, if not, keep
+  with the previous strategy of using a default time.
+* Contributors: Michael Ferguson, Sammy Pfeiffer
+
+0.5.18 (2014-03-23)
+-------------------
+
+0.5.17 (2014-03-22)
+-------------------
+* update build system for ROS indigo
+* fix merge
+* refactor how we use params for pick&place
+* set the pose frame so we don't get a crash in approach&translate
+* Contributors: Ioan Sucan
+
 0.5.16 (2014-02-27)
 -------------------
 
