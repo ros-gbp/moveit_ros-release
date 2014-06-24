@@ -299,6 +299,7 @@ void MotionPlanningFrame::waitForAction(const T &action, const ros::NodeHandle &
   // wait for the server (and spin as needed)                                                           
   if (wait_for_server == ros::Duration(0, 0))
   {
+    // wait forever until action server connects
     while (node_handle.ok() && !action->isServerConnected())
     {
       ros::WallDuration(0.02).sleep();
@@ -307,8 +308,9 @@ void MotionPlanningFrame::waitForAction(const T &action, const ros::NodeHandle &
   }
   else
   {
-    ros::Time final_time = ros::Time::now() + wait_for_server;
-    while (node_handle.ok() && !action->isServerConnected() && final_time > ros::Time::now())
+    // wait for a limited amount of non-simulated time
+    ros::WallTime final_time = ros::WallTime::now() + ros::WallDuration(wait_for_server.toSec());
+    while (node_handle.ok() && !action->isServerConnected() && final_time > ros::WallTime::now())
     {
       ros::WallDuration(0.02).sleep();
       ros::spinOnce();
@@ -316,7 +318,7 @@ void MotionPlanningFrame::waitForAction(const T &action, const ros::NodeHandle &
   }
 
   if (!action->isServerConnected())
-    throw std::runtime_error("Unable to connect to action server within allotted time");
+    throw std::runtime_error("Unable to connect to move_group action server within allotted time");
   else
     ROS_DEBUG("Connected to '%s'", name.c_str());
 };
