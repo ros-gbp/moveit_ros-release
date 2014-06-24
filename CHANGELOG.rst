@@ -2,6 +2,25 @@
 Changelog for package moveit_ros_benchmarks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.19 (2014-06-23)
+-------------------
+* benchmarks: add missing include.
+* Fix broken log & output statements.
+  - Address [cppcheck: coutCerrMisusage] and [-Werror=format-extra-args] errors.
+  - ROS_ERROR -> ROS_ERROR_NAMED.
+  - Print size_t values portably.
+* Address [-Wsign-compare] warning.
+* Contributors: Adolfo Rodriguez Tsouroukdissian, Benjamin Chretien
+
+0.5.18 (2014-03-23)
+-------------------
+
+0.5.17 (2014-03-22)
+-------------------
+* update build system for ROS indigo
+* update maintainer e-mail
+* Contributors: Ioan Sucan
+
 0.5.16 (2014-02-27)
 -------------------
 
