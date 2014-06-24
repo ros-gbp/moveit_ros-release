@@ -1,3 +1,33 @@
+## moveit_ros (indigo) - 0.5.19-0
+
+The packages in the `moveit_ros` repository were released into the `indigo` distro by running `/usr/bin/bloom-release moveit_ros --track indigo --rosdistro indigo` on `Tue, 24 Jun 2014 01:36:38 -0000`
+
+These packages were released:
+- `moveit_ros`
+- `moveit_ros_benchmarks`
+- `moveit_ros_benchmarks_gui`
+- `moveit_ros_manipulation`
+- `moveit_ros_move_group`
+- `moveit_ros_perception`
+- `moveit_ros_planning`
+- `moveit_ros_planning_interface`
+- `moveit_ros_robot_interaction`
+- `moveit_ros_visualization`
+- `moveit_ros_warehouse`
+
+Version of package(s) in repository `moveit_ros`:
+- rosdistro version: `0.5.18-1`
+- old version: `0.5.18-1`
+- new version: `0.5.19-0`
+
+Versions of tools used:
+- bloom version: `0.5.10`
+- catkin_pkg version: `0.2.2`
+- rosdep version: `0.10.27`
+- rosdistro version: `0.3.5`
+- vcstools version: `0.1.35`
+
+
 ## moveit_ros (hydro) - 0.5.19-0
 
 The packages in the `moveit_ros` repository were released into the `hydro` distro by running `/usr/bin/bloom-release moveit_ros --track hydro --rosdistro hydro` on `Tue, 24 Jun 2014 01:11:50 -0000`
