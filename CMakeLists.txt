@@ -5,11 +5,11 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(Eigen REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time program_options signals thread)
 find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_perception
+  cmake_modules
   pluginlib
   actionlib
   roscpp
@@ -21,7 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   tf_conversions
 )
-
+find_package(Eigen REQUIRED)
 find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
 
 include(${QT_USE_FILE})
@@ -42,6 +42,7 @@ set(THIS_PACKAGE_INCLUDE_DIRS
     trajectory_execution_manager/include
     plan_execution/include
     kdl_kinematics_plugin/include
+    srv_kinematics_plugin/include
 )
 
 catkin_package(
@@ -75,6 +76,7 @@ link_directories(${catkin_LIBRARY_DIRS})
 
 add_subdirectory(rdf_loader)
 add_subdirectory(kdl_kinematics_plugin)
+add_subdirectory(srv_kinematics_plugin)
 add_subdirectory(kinematics_plugin_loader)
 add_subdirectory(robot_model_loader)
 add_subdirectory(constraint_sampler_manager_loader)
@@ -89,5 +91,6 @@ install(
   FILES
     planning_request_adapters_plugin_description.xml
     kdl_kinematics_plugin_description.xml
+    srv_kinematics_plugin_description.xml
   DESTINATION
     ${CATKIN_PACKAGE_SHARE_DESTINATION})
