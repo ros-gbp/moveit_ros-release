@@ -2,6 +2,27 @@
 Changelog for package moveit_ros_visualization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.19 (2014-06-23)
+-------------------
+* Changed rviz plugin action server wait to non-simulated time
+* Fix [-Wreorder] warning.
+* Fix RobotState rviz plugin to not display when disabled
+* Add check for planning scene monitor connection, with 5 sec delay
+* Contributors: Adolfo Rodriguez Tsouroukdissian, Dave Coleman
+
+0.5.18 (2014-03-23)
+-------------------
+* add pkg-config as dep
+* find PkgConfig before using pkg_check_modules
+  PC specific functions mustn't be used before including PkgConfig
+* Contributors: Ioan Sucan, v4hn
+
+0.5.17 (2014-03-22)
+-------------------
+* update build system for ROS indigo
+* update maintainer e-mail
+* Contributors: Ioan Sucan
+
 0.5.16 (2014-02-27)
 -------------------
 * back out problematic ogre fixes
