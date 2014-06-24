@@ -441,7 +441,7 @@ void TrajectoryExecutionManager::continuousExecutionThread()
                 {
                   ROS_ERROR("Exception caught when canceling execution");
                 }
-              ROS_ERROR("Failed to send trajectory part %lu of %lu to controller %s", i + 1, context->trajectory_parts_.size(), handles[i]->getName().c_str());
+              ROS_ERROR("Failed to send trajectory part %zu of %zu to controller %s", i + 1, context->trajectory_parts_.size(), handles[i]->getName().c_str());
               if (i > 0)
                 ROS_ERROR("Cancelling previously sent trajectory parts");
               last_execution_status_ = moveit_controller_manager::ExecutionStatus::ABORTED;
@@ -636,7 +636,7 @@ bool TrajectoryExecutionManager::findControllers(const std::set<std::string> &ac
       sac << available_controllers[i] << " ";
     for (std::set<std::string>::const_iterator it = actuated_joints.begin() ; it != actuated_joints.end() ; ++it)
       saj << *it << " ";
-    ROS_INFO("Looking for %lu controllers among [ %s] that cover joints [ %s]. Found %ld options.", controller_count, sac.str().c_str(), saj.str().c_str(), selected_options.size());
+    ROS_INFO("Looking for %zu controllers among [ %s] that cover joints [ %s]. Found %zd options.", controller_count, sac.str().c_str(), saj.str().c_str(), selected_options.size());
   }
 
   // if none was found, this is a problem
@@ -918,6 +918,20 @@ bool TrajectoryExecutionManager::configure(TrajectoryExecutionContext &context, 
   for (std::set<std::string>::const_iterator it = actuated_joints.begin() ; it != actuated_joints.end() ; ++it)
     ss << *it << " ";
   ROS_ERROR("Unable to identify any set of controllers that can actuate the specified joints: [ %s]", ss.str().c_str());
+
+  std::stringstream ss2;
+  std::map<std::string, ControllerInformation>::const_iterator mi;
+  for(mi = known_controllers_.begin(); mi != known_controllers_.end(); mi++)
+  {
+    ss2 << "controller '" << mi->second.name_ << "' controls joints:\n";
+
+    std::set<std::string>::const_iterator ji;
+    for(ji = mi->second.joints_.begin(); ji != mi->second.joints_.end(); ji++)
+    {
+      ss2 << "  " << *ji << std::endl;
+    }
+  }
+  ROS_ERROR("Known controllers and their joints:\n%s", ss2.str().c_str());
   return false;
 }
 
@@ -1139,7 +1153,7 @@ bool TrajectoryExecutionManager::executePart(std::size_t part_index)
               {
                 ROS_ERROR("Exception caught when canceling execution");
               }
-            ROS_ERROR("Failed to send trajectory part %lu of %lu to controller %s", i + 1, context.trajectory_parts_.size(), active_handles_[i]->getName().c_str());
+            ROS_ERROR("Failed to send trajectory part %zu of %zu to controller %s", i + 1, context.trajectory_parts_.size(), active_handles_[i]->getName().c_str());
             if (i > 0)
               ROS_ERROR("Cancelling previously sent trajectory parts");
             active_handles_.clear();
