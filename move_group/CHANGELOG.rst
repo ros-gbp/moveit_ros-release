@@ -2,6 +2,20 @@
 Changelog for package moveit_ros_move_group
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.19 (2014-06-23)
+-------------------
+* Address [cppcheck: duplicateIf] error.
+  The same condition was being checked twice, and the same action was being taken.
+* Contributors: Adolfo Rodriguez Tsouroukdissian
+
+0.5.18 (2014-03-23)
+-------------------
+
+0.5.17 (2014-03-22)
+-------------------
+* update maintainer e-mail
+* Contributors: Ioan Sucan
+
 0.5.16 (2014-02-27)
 -------------------
 * empty state should be a diff state, otherwise attached objects are deleted
