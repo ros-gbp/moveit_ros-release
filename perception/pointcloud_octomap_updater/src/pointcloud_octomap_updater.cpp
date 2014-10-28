@@ -38,7 +38,7 @@
 #include <moveit/pointcloud_octomap_updater/pointcloud_octomap_updater.h>
 #include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
 #include <message_filters/subscriber.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include <XmlRpcException.h>
 
 namespace occupancy_map_monitor
@@ -154,7 +154,7 @@ bool PointCloudOctomapUpdater::getShapeTransform(ShapeHandle h, Eigen::Affine3d 
   return true;
 }
 
-void PointCloudOctomapUpdater::updateMask(const pcl::PointCloud<pcl::PointXYZ> &cloud, const Eigen::Vector3d &sensor_origin, std::vector<int> &mask)
+void PointCloudOctomapUpdater::updateMask(const sensor_msgs::PointCloud2 &cloud, const Eigen::Vector3d &sensor_origin, std::vector<int> &mask)
 {
 }
 
@@ -188,10 +188,6 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
       return;
   }
 
-  /* convert cloud message to pcl cloud object */
-  pcl::PointCloud<pcl::PointXYZ> cloud;
-  pcl::fromROSMsg(*cloud_msg, cloud);
-
   /* compute sensor origin in map frame */
   const tf::Vector3 &sensor_origin_tf = map_H_sensor.getOrigin();
   octomap::point3d sensor_origin(sensor_origin_tf.getX(), sensor_origin_tf.getY(), sensor_origin_tf.getZ());
@@ -204,13 +200,32 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
   }
 
   /* mask out points on the robot */
-  shape_mask_->maskContainment(cloud, sensor_origin_eigen, 0.0, max_range_, mask_);
-  updateMask(cloud, sensor_origin_eigen, mask_);
+  shape_mask_->maskContainment(*cloud_msg, sensor_origin_eigen, 0.0, max_range_, mask_);
+  updateMask(*cloud_msg, sensor_origin_eigen, mask_);
 
   octomap::KeySet free_cells, occupied_cells, model_cells, clip_cells;
-  boost::scoped_ptr<pcl::PointCloud<pcl::PointXYZ> > filtered_cloud;
-  if (!filtered_cloud_topic_.empty())
-    filtered_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>());
+  boost::scoped_ptr<sensor_msgs::PointCloud2> filtered_cloud;
+
+  //We only use these iterators if we are creating a filtered_cloud for
+  //publishing. We cannot default construct these, so we use scoped_ptr's
+  //to defer construction
+  boost::scoped_ptr<sensor_msgs::PointCloud2Iterator<float> > iter_filtered_x;
+  boost::scoped_ptr<sensor_msgs::PointCloud2Iterator<float> > iter_filtered_y;
+  boost::scoped_ptr<sensor_msgs::PointCloud2Iterator<float> > iter_filtered_z;
+
+  if (!filtered_cloud_topic_.empty()) {
+    filtered_cloud.reset(new sensor_msgs::PointCloud2());
+    filtered_cloud->header = cloud_msg->header;
+    sensor_msgs::PointCloud2Modifier pcd_modifier(*filtered_cloud);
+    pcd_modifier.setPointCloud2FieldsByString(1, "xyz");
+    pcd_modifier.resize(cloud_msg->width * cloud_msg->height);
+
+    //we have created a filtered_out, so we can create the iterators now
+    iter_filtered_x.reset(new sensor_msgs::PointCloud2Iterator<float>(*filtered_cloud, "x"));
+    iter_filtered_y.reset(new sensor_msgs::PointCloud2Iterator<float>(*filtered_cloud, "y"));
+    iter_filtered_z.reset(new sensor_msgs::PointCloud2Iterator<float>(*filtered_cloud, "z"));
+  }
+  size_t filtered_cloud_size = 0;
 
   tree_->lockRead();
 
@@ -218,32 +233,46 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
   {
     /* do ray tracing to find which cells this point cloud indicates should be free, and which it indicates
      * should be occupied */
-    for (unsigned int row = 0; row < cloud.height; row += point_subsample_)
+    for (unsigned int row = 0; row < cloud_msg->height; row += point_subsample_)
     {
-      unsigned int row_c = row * cloud.width;
-      for (unsigned int col = 0; col < cloud.width; col += point_subsample_)
+      unsigned int row_c = row * cloud_msg->width;
+      sensor_msgs::PointCloud2ConstIterator<float> pt_iter(*cloud_msg, "x");
+      //set iterator to point at start of the current row
+      pt_iter += row_c;
+
+      for (unsigned int col = 0; col < cloud_msg->width; col += point_subsample_,
+        pt_iter += point_subsample_)
       {
         //if (mask_[row_c + col] == point_containment_filter::ShapeMask::CLIP)
         //  continue;
-        const pcl::PointXYZ &p = cloud(col, row);
 
         /* check for NaN */
-        if (!isnan(p.x) && !isnan(p.y) && !isnan(p.z))
-    {
-      /* transform to map frame */
-      tf::Vector3 point_tf = map_H_sensor * tf::Vector3(p.x, p.y, p.z);
+        if (!isnan(pt_iter[0]) && !isnan(pt_iter[1]) && !isnan(pt_iter[2]))
+        {
+          /* transform to map frame */
+          tf::Vector3 point_tf = map_H_sensor * tf::Vector3(pt_iter[0], pt_iter[1],
+            pt_iter[2]);
 
-      /* occupied cell at ray endpoint if ray is shorter than max range and this point
-         isn't on a part of the robot*/
-      if (mask_[row_c + col] == point_containment_filter::ShapeMask::INSIDE)
-        model_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
-      else if (mask_[row_c + col] == point_containment_filter::ShapeMask::CLIP)
-        clip_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
-      else
+          /* occupied cell at ray endpoint if ray is shorter than max range and this point
+             isn't on a part of the robot*/
+          if (mask_[row_c + col] == point_containment_filter::ShapeMask::INSIDE)
+            model_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+          else if (mask_[row_c + col] == point_containment_filter::ShapeMask::CLIP)
+            clip_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+          else
           {
             occupied_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+            //build list of valid points if we want to publish them
             if (filtered_cloud)
-              filtered_cloud->push_back(p);
+            {
+              **iter_filtered_x = pt_iter[0];
+              **iter_filtered_y = pt_iter[1];
+              **iter_filtered_z = pt_iter[2];
+              ++filtered_cloud_size;
+              ++*iter_filtered_x;
+              ++*iter_filtered_y;
+              ++*iter_filtered_z;
+            }
           }
         }
       }
@@ -307,10 +336,9 @@ void PointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::
 
   if (filtered_cloud)
   {
-    sensor_msgs::PointCloud2 filtered_cloud_msg;
-    pcl::toROSMsg(*filtered_cloud, filtered_cloud_msg);
-    filtered_cloud_msg.header = cloud_msg->header;
-    filtered_cloud_publisher_.publish(filtered_cloud_msg);
+    sensor_msgs::PointCloud2Modifier pcd_modifier(*filtered_cloud);
+    pcd_modifier.resize(filtered_cloud_size);
+    filtered_cloud_publisher_.publish(*filtered_cloud);
   }
 }
 
