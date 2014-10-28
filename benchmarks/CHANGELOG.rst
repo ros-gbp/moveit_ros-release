@@ -2,6 +2,11 @@
 Changelog for package moveit_ros_benchmarks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.0 (2014-10-27)
+------------------
+* Removed PlanningContext clear before planning call
+* Contributors: Sachin Chitta, arjungm
+
 0.5.19 (2014-06-23)
 -------------------
 * benchmarks: add missing include.

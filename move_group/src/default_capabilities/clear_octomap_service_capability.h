@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2011, Willow Garage, Inc.
+ *  Copyright (c) 2014, SRI, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,61 +32,32 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Ioan Sucan */
+/* Author: David Hershberger */
 
-#ifndef MOVEIT_OCCUPANCY_MAP_MONITOR_LAZY_FREE_SPACE_UPDATER_
-#define MOVEIT_OCCUPANCY_MAP_MONITOR_LAZY_FREE_SPACE_UPDATER_
+#ifndef MOVEIT_MOVE_GROUP_CLEAR_OCTOMAP_SERVICE_CAPABILITY_
+#define MOVEIT_MOVE_GROUP_CLEAR_OCTOMAP_SERVICE_CAPABILITY_
 
-#include <moveit/occupancy_map_monitor/occupancy_map.h>
-#include <boost/thread.hpp>
-#include <deque>
+#include <moveit/move_group/move_group_capability.h>
+#include <std_srvs/Empty.h>
 
-namespace occupancy_map_monitor
+namespace move_group
 {
 
-class LazyFreeSpaceUpdater
+class ClearOctomapService : public MoveGroupCapability
 {
 public:
 
-  LazyFreeSpaceUpdater(const OccMapTreePtr &tree, unsigned int max_batch_size = 10);
-  ~LazyFreeSpaceUpdater();
+  ClearOctomapService();
 
-  void pushLazyUpdate(octomap::KeySet *occupied_cells, octomap::KeySet *model_cells, const octomap::point3d &sensor_origin);
+  virtual void initialize();
 
 private:
 
-#ifdef __APPLE__
-  typedef std::unordered_map<octomap::OcTreeKey, unsigned int, octomap::OcTreeKey::KeyHash> OcTreeKeyCountMap;
-#else
-  typedef std::tr1::unordered_map<octomap::OcTreeKey, unsigned int, octomap::OcTreeKey::KeyHash> OcTreeKeyCountMap;
-#endif
+  bool clearOctomap(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 
-  void pushBatchToProcess(OcTreeKeyCountMap *occupied_cells, octomap::KeySet *model_cells, const octomap::point3d &sensor_origin);
-
-  void lazyUpdateThread();
-  void processThread();
-
-  OccMapTreePtr tree_;
-  bool running_;
-  std::size_t max_batch_size_;
-  double max_sensor_delta_;
-
-  std::deque<octomap::KeySet*> occupied_cells_sets_;
-  std::deque<octomap::KeySet*> model_cells_sets_;
-  std::deque<octomap::point3d> sensor_origins_;
-  boost::condition_variable update_condition_;
-  boost::mutex update_cell_sets_lock_;
-
-  OcTreeKeyCountMap *process_occupied_cells_set_;
-  octomap::KeySet *process_model_cells_set_;
-  octomap::point3d process_sensor_origin_;
-  boost::condition_variable process_condition_;
-  boost::mutex cell_process_lock_;
-
-  boost::thread update_thread_;
-  boost::thread process_thread_;
+  ros::ServiceServer service_;
 };
 
 }
 
-#endif /* MOVEIT_OCCUPANCY_MAP_UPDATER_H_ */
+#endif // MOVEIT_MOVE_GROUP_CLEAR_OCTOMAP_SERVICE_CAPABILITY_
