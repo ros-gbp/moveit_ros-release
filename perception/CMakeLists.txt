@@ -8,7 +8,6 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(Boost REQUIRED thread signals)
-find_package(PCL REQUIRED QUIET COMPONENTS common)
 
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
@@ -25,11 +24,11 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   tf
   tf_conversions
-  pcl_conversions
   pluginlib
   image_transport
   object_recognition_msgs
   cmake_modules
+  sensor_msgs
 )
 find_package(Eigen REQUIRED)
 
@@ -46,7 +45,6 @@ catkin_package(
     pointcloud_octomap_updater/include
     semantic_world/include
     ${OCTOMAP_INCLUDE_DIRS}
-    ${PCL_COMMON_INCLUDE_DIRS}
   LIBRARIES
     moveit_point_containment_filter
     moveit_occupancy_map_monitor
@@ -56,23 +54,22 @@ catkin_package(
   CATKIN_DEPENDS
     moveit_core
     image_transport)
-  
+
 include_directories(mesh_filter/include
                     depth_image_octomap_updater/include
-		    point_containment_filter/include
+                    point_containment_filter/include
                     occupancy_map_monitor/include
-		    pointcloud_octomap_updater/include
-		    semantic_world/include
+                    pointcloud_octomap_updater/include
+                    semantic_world/include
                     ${catkin_INCLUDE_DIRS}
                     )
 include_directories(SYSTEM
-		    ${PCL_COMMON_INCLUDE_DIRS}
-		    ${OpenCV_INCLUDE_DIRS}
+                    ${OpenCV_INCLUDE_DIRS}
                     ${EIGEN_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIRS}
-		    ${GLEW_INCLUDE_DIR}
-		    ${GLUT_INCLUDE_DIR}
-		    )
+                    ${GLEW_INCLUDE_DIR}
+                    ${GLUT_INCLUDE_DIR}
+                    )
 
 link_directories(${Boost_LIBRARY_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
