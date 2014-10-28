@@ -2,6 +2,11 @@
 Changelog for package moveit_ros_move_group
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.0 (2014-10-27)
+------------------
+* Added move_group capability for clearing octomap.
+* Contributors: Dave Hershberger, Sachin Chitta
+
 0.5.19 (2014-06-23)
 -------------------
 * Address [cppcheck: duplicateIf] error.

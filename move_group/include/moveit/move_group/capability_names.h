@@ -51,6 +51,7 @@ static const std::string FK_SERVICE_NAME = "compute_fk"; // name of fk service
 static const std::string STATE_VALIDITY_SERVICE_NAME = "check_state_validity"; // name of the service that validates states
 static const std::string CARTESIAN_PATH_SERVICE_NAME = "compute_cartesian_path"; // name of the service that computes cartesian paths
 static const std::string GET_PLANNING_SCENE_SERVICE_NAME = "get_planning_scene"; // name of the service that can be used to query the planning scene
+static const std::string CLEAR_OCTOMAP_SERVICE_NAME = "clear_octomap"; // name of the service that can be used to clear the octomap
 
 }
 
