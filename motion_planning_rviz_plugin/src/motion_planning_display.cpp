@@ -287,7 +287,7 @@ void MotionPlanningDisplay::onInitialize()
   text_to_display_->setVisible(false);
   text_display_for_start_ = false;
   text_display_scene_node_->attachObject(text_to_display_);
-
+  
   if (context_ && context_->getWindowManager() && context_->getWindowManager()->getParentWindow())
   {
     QShortcut *im_reset_shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_R), context_->getWindowManager()->getParentWindow());
@@ -295,6 +295,32 @@ void MotionPlanningDisplay::onInitialize()
   }
 }
 
+void MotionPlanningDisplay::toggleSelectPlanningGroupSubscription(bool enable)
+{
+  if (enable)
+  {
+    planning_group_sub_ = node_handle_.subscribe("/rviz/moveit/select_planning_group", 1, &MotionPlanningDisplay::selectPlanningGroupCallback, this);  
+  }
+  else
+  {
+    planning_group_sub_.shutdown();
+  }
+}
+  
+void MotionPlanningDisplay::selectPlanningGroupCallback(const std_msgs::StringConstPtr& msg)
+{
+  if (!getRobotModel() || !robot_interaction_)
+    return;
+  if (getRobotModel()->hasJointModelGroup(msg->data))
+  {
+    planning_group_property_->setStdString(msg->data);
+    changedPlanningGroup();
+  }
+  else
+  {
+    ROS_ERROR("Group [%s] not found in the robot model.", msg->data.c_str());
+  }
+}
 void MotionPlanningDisplay::reset()
 {
   clearTrajectoryTrail();
@@ -880,6 +906,9 @@ void MotionPlanningDisplay::publishInteractiveMarkers(bool pose_update)
         robot_interaction_->addInteractiveMarkers(query_goal_state_, query_marker_scale_property_->getFloat());
       robot_interaction_->publishInteractiveMarkers();
     }
+    if (frame_) {
+      frame_->updateExternalCommunication();
+    }
   }
 }
 
@@ -1438,6 +1467,9 @@ void MotionPlanningDisplay::load(const rviz::Config& config)
     float d;
     if (config.mapGetFloat("MoveIt_Planning_Time", &d))
       frame_->ui_->planning_time->setValue(d);
+    int attempts;
+    if (config.mapGetInt("MoveIt_Planning_Attempts", &attempts))
+      frame_->ui_->planning_attempts->setValue(attempts);
     if (config.mapGetFloat("MoveIt_Goal_Tolerance", &d))
       frame_->ui_->goal_tolerance->setValue(d);
     bool b;
@@ -1454,6 +1486,7 @@ void MotionPlanningDisplay::save(rviz::Config config) const
     config.mapSetValue("MoveIt_Warehouse_Host", frame_->ui_->database_host->text());
     config.mapSetValue("MoveIt_Warehouse_Port", frame_->ui_->database_port->value());
     config.mapSetValue("MoveIt_Planning_Time", frame_->ui_->planning_time->value());
+    config.mapSetValue("MoveIt_Planning_Attempts", frame_->ui_->planning_attempts->value());
     config.mapSetValue("MoveIt_Goal_Tolerance", frame_->ui_->goal_tolerance->value());
     config.mapSetValue("MoveIt_Use_Constraint_Aware_IK", frame_->ui_->collision_aware_ik->isChecked());
   }
