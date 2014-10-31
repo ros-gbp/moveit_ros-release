@@ -2,6 +2,9 @@
 Changelog for package moveit_ros_move_group
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.1 (2014-10-31)
+------------------
+
 0.6.0 (2014-10-27)
 ------------------
 * Added move_group capability for clearing octomap.

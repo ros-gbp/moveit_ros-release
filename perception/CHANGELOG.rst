@@ -2,6 +2,11 @@
 Changelog for package moveit_ros_perception
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.1 (2014-10-31)
+------------------
+* fix linking error on OSX
+* Contributors: Michael Ferguson
+
 0.6.0 (2014-10-27)
 ------------------
 * Fixing invalid iterators if filtered_cloud_topic is not set.
