@@ -2,6 +2,9 @@
 Changelog for package moveit_ros_robot_interaction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.1 (2014-10-31)
+------------------
+
 0.6.0 (2014-10-27)
 ------------------
 * Fix coding style according to the moveit style
