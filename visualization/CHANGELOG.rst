@@ -2,6 +2,11 @@
 Changelog for package moveit_ros_visualization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.3 (2014-12-03)
+------------------
+* fix duplicate planning attempt box, also fix warning about name
+* Contributors: Michael Ferguson
+
 0.6.2 (2014-10-31)
 ------------------
 
