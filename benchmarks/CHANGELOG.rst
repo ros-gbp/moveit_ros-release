@@ -2,6 +2,11 @@
 Changelog for package moveit_ros_benchmarks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.3 (2014-12-03)
+------------------
+* Add missing include of scoped_ptr
+* Contributors: v4hn
+
 0.6.2 (2014-10-31)
 ------------------
 
