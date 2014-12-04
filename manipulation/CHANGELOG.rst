@@ -2,6 +2,12 @@
 Changelog for package moveit_ros_manipulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.3 (2014-12-03)
+------------------
+* trivial fixes for warnings
+* use named logging for manipulation components
+* Contributors: Michael Ferguson
+
 0.6.2 (2014-10-31)
 ------------------
 
