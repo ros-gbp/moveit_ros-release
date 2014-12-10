@@ -264,7 +264,7 @@ void MotionPlanningFrame::populateConstraintsList(const std::vector<std::string>
 void MotionPlanningFrame::constructPlanningRequest(moveit_msgs::MotionPlanRequest &mreq)
 {
   mreq.group_name = planning_display_->getCurrentPlanningGroup();
-  mreq.num_planning_attempts = 1;
+  mreq.num_planning_attempts = ui_->planning_attempts->value();
   mreq.allowed_planning_time = ui_->planning_time->value();
   robot_state::robotStateToRobotStateMsg(*planning_display_->getQueryStartState(), mreq.start_state);
   mreq.workspace_parameters.min_corner.x = ui_->wcenter_x->value() - ui_->wsize_x->value() / 2.0;
@@ -325,7 +325,47 @@ void MotionPlanningFrame::configureForPlanning()
   move_group_->setStartState(*planning_display_->getQueryStartState());
   move_group_->setJointValueTarget(*planning_display_->getQueryGoalState());
   move_group_->setPlanningTime(ui_->planning_time->value());
+  move_group_->setNumPlanningAttempts(ui_->planning_attempts->value());
   configureWorkspace();
 }
 
+void MotionPlanningFrame::remotePlanCallback(const std_msgs::EmptyConstPtr& msg)
+{
+  planButtonClicked();
+}
+
+void MotionPlanningFrame::remoteExecuteCallback(const std_msgs::EmptyConstPtr& msg)
+{
+  executeButtonClicked();
+}
+
+void MotionPlanningFrame::remoteUpdateStartStateCallback(const std_msgs::EmptyConstPtr& msg)
+{
+  if (move_group_ && planning_display_)
+  {
+    robot_state::RobotState state = *planning_display_->getQueryStartState();
+    const planning_scene_monitor::LockedPlanningSceneRO &ps = planning_display_->getPlanningSceneRO();
+    if (ps)
+    {
+      state = ps->getCurrentState();
+      planning_display_->setQueryStartState(state);
+    }
+  }
+}
+
+void MotionPlanningFrame::remoteUpdateGoalStateCallback(const std_msgs::EmptyConstPtr& msg)
+{
+  if (move_group_ && planning_display_)
+  {
+    robot_state::RobotState state = *planning_display_->getQueryStartState();
+    const planning_scene_monitor::LockedPlanningSceneRO &ps = planning_display_->getPlanningSceneRO();
+    if (ps)
+    {
+      state = ps->getCurrentState();
+      planning_display_->setQueryGoalState(state);
+    }
+  }
+}
+
+  
 }
