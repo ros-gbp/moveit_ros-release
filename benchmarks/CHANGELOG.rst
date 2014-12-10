@@ -2,21 +2,10 @@
 Changelog for package moveit_ros_benchmarks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.6.3 (2014-12-03)
-------------------
-* Add missing include of scoped_ptr
-* Contributors: v4hn
-
-0.6.2 (2014-10-31)
-------------------
-
-0.6.1 (2014-10-31)
-------------------
-
-0.6.0 (2014-10-27)
-------------------
+0.5.20 (2014-12-09)
+-------------------
 * Removed PlanningContext clear before planning call
-* Contributors: Sachin Chitta, arjungm
+* Contributors: arjungm
 
 0.5.19 (2014-06-23)
 -------------------

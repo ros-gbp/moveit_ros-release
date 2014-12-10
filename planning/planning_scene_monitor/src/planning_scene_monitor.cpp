@@ -170,14 +170,12 @@ void planning_scene_monitor::PlanningSceneMonitor::initialize(const planning_sce
   {
     robot_model_ = rm_loader_->getModel();
     scene_ = scene;
-    collision_loader_.setupScene(nh_, scene_);
     scene_const_ = scene_;
     if (!scene_)
     {
       try
       {
         scene_.reset(new planning_scene::PlanningScene(rm_loader_->getModel()));
-        collision_loader_.setupScene(nh_, scene_);
         scene_const_ = scene_;
         configureCollisionMatrix(scene_);
         configureDefaultPadding();
@@ -447,13 +445,6 @@ bool planning_scene_monitor::PlanningSceneMonitor::requestPlanningSceneState(con
 void planning_scene_monitor::PlanningSceneMonitor::newPlanningSceneCallback(const moveit_msgs::PlanningSceneConstPtr &scene)
 {
   newPlanningSceneMessage(*scene);
-}
-
-void planning_scene_monitor::PlanningSceneMonitor::clearOctomap()
-{
-  octomap_monitor_->getOcTreePtr()->lockWrite();
-  octomap_monitor_->getOcTreePtr()->clear();
-  octomap_monitor_->getOcTreePtr()->unlockWrite();
 }
 
 void planning_scene_monitor::PlanningSceneMonitor::newPlanningSceneMessage(const moveit_msgs::PlanningScene& scene)
@@ -1256,19 +1247,10 @@ void planning_scene_monitor::PlanningSceneMonitor::configureDefaultPadding()
     default_attached_padd_ = 0.0;
     return;
   }
-
-  // Ensure no leading slash creates a bad param server address
-  static const std::string robot_description = (robot_description_[0] == '/') ? robot_description_.substr(1) : robot_description_;
-
-  nh_.param(robot_description + "_planning/default_robot_padding", default_robot_padd_, 0.0);
-  nh_.param(robot_description + "_planning/default_robot_scale", default_robot_scale_, 1.0);
-  nh_.param(robot_description + "_planning/default_object_padding", default_object_padd_, 0.0);
-  nh_.param(robot_description + "_planning/default_attached_padding", default_attached_padd_, 0.0);
-  nh_.param(robot_description + "_planning/default_robot_link_padding", default_robot_link_padd_, std::map<std::string, double>());
-  nh_.param(robot_description + "_planning/default_robot_link_scale", default_robot_link_scale_, std::map<std::string, double>());
-
-  ROS_DEBUG_STREAM_NAMED("planning_scene_monitor", "Loaded " << default_robot_link_padd_.size()
-                         << " default link paddings");
-  ROS_DEBUG_STREAM_NAMED("planning_scene_monitor", "Loaded " << default_robot_link_scale_.size()
-                         << " default link scales");
+  nh_.param(robot_description_ + "_planning/default_robot_padding", default_robot_padd_, 0.0);
+  nh_.param(robot_description_ + "_planning/default_robot_scale", default_robot_scale_, 1.0);
+  nh_.param(robot_description_ + "_planning/default_object_padding", default_object_padd_, 0.0);
+  nh_.param(robot_description_ + "_planning/default_attached_padding", default_attached_padd_, 0.0);
+  nh_.param(robot_description_ + "_planning/default_robot_link_padding", default_robot_link_padd_, std::map<std::string, double>());
+  nh_.param(robot_description_ + "_planning/default_robot_link_scale", default_robot_link_scale_, std::map<std::string, double>());
 }

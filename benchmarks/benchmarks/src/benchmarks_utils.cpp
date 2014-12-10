@@ -37,7 +37,6 @@
 #include <moveit/benchmarks/benchmarks_utils.h>
 #include <pluginlib/class_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
-#include <boost/scoped_ptr.hpp>
 #include <unistd.h>
 
 namespace moveit_benchmarks

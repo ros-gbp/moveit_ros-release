@@ -12,7 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   roscpp
   pluginlib
-  std_srvs
   tf
 )
 
@@ -54,7 +53,6 @@ add_library(moveit_move_group_default_capabilities
   src/default_capabilities/state_validation_service_capability.cpp
   src/default_capabilities/cartesian_path_service_capability.cpp
   src/default_capabilities/get_planning_scene_service_capability.cpp
-  src/default_capabilities/clear_octomap_service_capability.cpp
   )
 
 
