@@ -1,0 +1,12 @@
+Source: ros-hydro-moveit-ros-perception
+Section: misc
+Priority: extra
+Maintainer: Ioan Sucan <isucan@google.com>
+Build-Depends: debhelper (>= 9.0.0), freeglut3-dev, libgl1-mesa-dev, libglew1.6-dev, libglu1-mesa-dev, ros-hydro-catkin, ros-hydro-cmake-modules, ros-hydro-cv-bridge, ros-hydro-image-transport, ros-hydro-message-filters, ros-hydro-moveit-core, ros-hydro-octomap, ros-hydro-pcl-conversions, ros-hydro-pluginlib, ros-hydro-rosconsole, ros-hydro-roscpp, ros-hydro-tf, ros-hydro-tf-conversions, ros-hydro-urdf
+Homepage: http://moveit.ros.org
+Standards-Version: 3.9.2
+
+Package: ros-hydro-moveit-ros-perception
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, freeglut3-dev, libgl1-mesa-dev, libglew1.6-dev, libglu1-mesa-dev, ros-hydro-cv-bridge, ros-hydro-image-transport, ros-hydro-message-filters, ros-hydro-moveit-core, ros-hydro-octomap, ros-hydro-pcl-conversions, ros-hydro-pluginlib, ros-hydro-rosconsole, ros-hydro-roscpp, ros-hydro-tf, ros-hydro-tf-conversions, ros-hydro-urdf
+Description: Components of MoveIt connecting to perception
