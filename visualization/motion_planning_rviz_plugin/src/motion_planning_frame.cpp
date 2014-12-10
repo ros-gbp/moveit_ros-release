@@ -78,6 +78,7 @@ MotionPlanningFrame::MotionPlanningFrame(MotionPlanningDisplay *pdisplay, rviz::
   connect( ui_->load_query_button, SIGNAL( clicked() ), this, SLOT( loadQueryButtonClicked() ));
   connect( ui_->allow_looking, SIGNAL( toggled(bool) ), this, SLOT( allowLookingToggled(bool) ));
   connect( ui_->allow_replanning, SIGNAL( toggled(bool) ), this, SLOT( allowReplanningToggled(bool) ));
+  connect( ui_->allow_external_program, SIGNAL( toggled(bool) ), this, SLOT( allowExternalProgramCommunication(bool) ));
   connect( ui_->planning_algorithm_combo_box, SIGNAL( currentIndexChanged ( int ) ), this, SLOT( planningAlgorithmIndexChanged( int ) ));
   connect( ui_->import_file_button, SIGNAL( clicked() ), this, SLOT( importFileButtonClicked() ));
   connect( ui_->import_url_button, SIGNAL( clicked() ), this, SLOT( importUrlButtonClicked() ));
@@ -119,8 +120,7 @@ MotionPlanningFrame::MotionPlanningFrame(MotionPlanningDisplay *pdisplay, rviz::
 
   connect( ui_->tabWidget, SIGNAL( currentChanged ( int ) ), this, SLOT( tabChanged( int ) ));
 
-  QShortcut *copy_object_shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_C), ui_->collision_objects_list);
-  connect(copy_object_shortcut, SIGNAL( activated() ), this, SLOT( copySelectedCollisionObject() ) );
+  QShortcut *copy_object_shortcut = new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_C), ui_->collision_objects_list);  connect(copy_object_shortcut, SIGNAL( activated() ), this, SLOT( copySelectedCollisionObject() ) );
 
   ui_->reset_db_button->hide();
   ui_->background_job_progress->hide();
@@ -194,6 +194,29 @@ void MotionPlanningFrame::setItemSelectionInList(const std::string &item_name, b
     found_items[i]->setSelected(selection);
 }
 
+void MotionPlanningFrame::allowExternalProgramCommunication(bool enable)
+{
+  planning_display_->getRobotInteraction()->toggleMoveInteractiveMarkerTopic(enable);
+  planning_display_->toggleSelectPlanningGroupSubscription(enable);
+  if (enable)
+  {
+    ros::NodeHandle nh;
+    plan_subscriber_ = nh.subscribe("/rviz/moveit/plan", 1, &MotionPlanningFrame::remotePlanCallback, this);
+    execute_subscriber_ = nh.subscribe("/rviz/moveit/execute", 1, &MotionPlanningFrame::remoteExecuteCallback, this);
+    update_start_state_subscriber_ = nh.subscribe("/rviz/moveit/update_start_state",1,
+                                                  &MotionPlanningFrame::remoteUpdateStartStateCallback, this);
+    update_goal_state_subscriber_ = nh.subscribe("/rviz/moveit/update_goal_state",1,
+                                                 &MotionPlanningFrame::remoteUpdateGoalStateCallback, this);
+  }
+  else
+  {                        // disable
+    plan_subscriber_.shutdown();
+    execute_subscriber_.shutdown();
+    update_start_state_subscriber_.shutdown();
+    update_goal_state_subscriber_.shutdown();
+  }
+}
+  
 void MotionPlanningFrame::fillStateSelectionOptions()
 {
   ui_->start_state_selection->clear();
@@ -250,10 +273,11 @@ void MotionPlanningFrame::changePlanningGroupHelper()
   {
     if (move_group_ && move_group_->getName() == group)
       return;
-    ROS_INFO("Constructing new MoveGroup connection for group '%s'", group.c_str());
+    ROS_INFO("Constructing new MoveGroup connection for group '%s' in namespace '%s'", group.c_str(), planning_display_->getMoveGroupNS().c_str());
     moveit::planning_interface::MoveGroup::Options opt(group);
     opt.robot_model_ = kmodel;
-    opt.robot_description_.clear();
+    opt.robot_description_.clear(); 
+    opt.node_handle_ = ros::NodeHandle(planning_display_->getMoveGroupNS());
     try
     {
       move_group_.reset(new moveit::planning_interface::MoveGroup(opt, context_->getFrameManager()->getTFClientPtr(), ros::Duration(30, 0)));
@@ -421,4 +445,13 @@ void MotionPlanningFrame::updateSceneMarkers(float wall_dt, float ros_dt)
     scene_marker_->update(wall_dt);
 }
 
+void MotionPlanningFrame::updateExternalCommunication()
+{
+  if (ui_->allow_external_program->isChecked())
+  {
+    planning_display_->getRobotInteraction()->toggleMoveInteractiveMarkerTopic(true);
+  }
+}
+
+  
 } // namespace
