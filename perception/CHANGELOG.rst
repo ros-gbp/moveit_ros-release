@@ -2,13 +2,35 @@
 Changelog for package moveit_ros_perception
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.5.20 (2014-12-09)
--------------------
-* Adding missing moveit_occupancy_map_monitor linkage to depth_image_octomap_updater
+0.6.4 (2014-12-20)
+------------------
+
+0.6.3 (2014-12-03)
+------------------
+* port `#445 <https://github.com/ros-planning/moveit_ros/issues/445>`_ to indigo
+* disable test that needs display when no display defined
+* GL_TYPE() is a function in newer versions of OpenGL, this fixes tests on Ubuntu 14.04
+* Contributors: Michael Ferguson
+
+0.6.2 (2014-10-31)
+------------------
+
+0.6.1 (2014-10-31)
+------------------
+* fix linking error on OSX
+* Contributors: Michael Ferguson
+
+0.6.0 (2014-10-27)
+------------------
+* Fixing invalid iterators if filtered_cloud_topic is not set.
+  Adding missing dependency on sensor_msgs.
+  Fixing indentation, whitespace, and tabs.
+  Incrementing PointCloud2Iterator pixel-at-a-time, not byte-at-a-time.
+* remove PCL dependency
 * Fixed issue with unordered_map and libc++ (LLVM, Mac OS X Mavericks)
+  libc++ doesn't have std::tr1::unordered_map, just std::unordered_map
 * Fixing OpenGL gl.h and glu.h inclusion on Mac OS X
-* Bugfix: deadlock race condition in MeshFilterBase, issue `#444 <https://github.com/ros-planning/moveit_ros/issues/444>`_
-* Contributors: Ioan A Sucan, Marco Esposito, Tobias Fromm
+* Contributors: Jason Ziglar, Marco Esposito, Sachin Chitta, Vincent Rabaud
 
 0.5.19 (2014-06-23)
 -------------------

@@ -99,7 +99,6 @@ bool samplePossibleGoalStates(const ManipulationPlanPtr &plan, const robot_state
 {
   // initialize with scene state
   robot_state::RobotStatePtr token_state(new robot_state::RobotState(reference_state));
-  const robot_state::JointModelGroup *jmg = plan->shared_data_->planning_group_;
   for (unsigned int j = 0 ; j < attempts ; ++j)
   {
     double min_d = std::numeric_limits<double>::infinity();
@@ -129,7 +128,7 @@ bool executeAttachObject(const ManipulationPlanSharedDataConstPtr &shared_plan_d
                          const trajectory_msgs::JointTrajectory &detach_posture,
                          const plan_execution::ExecutableMotionPlan *motion_plan)
 {
-  ROS_DEBUG("Applying attached object diff to maintained planning scene (attaching/detaching object to end effector)");
+  ROS_DEBUG_NAMED("manipulation", "Applying attached object diff to maintained planning scene (attaching/detaching object to end effector)");
   bool ok = false;
   {
     planning_scene_monitor::LockedPlanningSceneRW ps(motion_plan->planning_scene_monitor_);
@@ -173,7 +172,7 @@ void addGripperTrajectory(const ManipulationPlanPtr &plan, const collision_detec
   }
   else
   {
-    ROS_WARN_STREAM("No joint states of grasp postures have been defined in the pick place action.");
+    ROS_WARN_NAMED("manipulation", "No joint states of grasp postures have been defined in the pick place action.");
   }
 }
 

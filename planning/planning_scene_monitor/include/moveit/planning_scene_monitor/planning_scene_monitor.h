@@ -45,6 +45,7 @@
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
+#include <moveit/collision_plugin_loader/collision_plugin_loader.h>
 #include <boost/noncopyable.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
@@ -347,6 +348,8 @@ public:
   /** \brief Lock the scene from writing (only one thread can lock for writing and no other thread can lock for reading) */
   void unlockSceneWrite();
 
+  void clearOctomap();
+
 protected:
 
   /** @brief Initialize the planning scene monitor
@@ -490,6 +493,11 @@ private:
   // This field is protected by state_pending_mutex_
   ros::WallDuration dt_state_update_;
 
+  /// the amount of time to wait when looking up transforms
+  // Setting this to a non-zero value resolves issues when the sensor data is
+  // arriving so fast that it is preceding the transform state.
+  ros::Duration shape_transform_cache_lookup_wait_time_;
+
   /// timer for state updates.
   // Check if last_state_update_ is true and if so call updateSceneWithCurrentState()
   // Not safe to access from callback functions.
@@ -501,6 +509,8 @@ private:
 
   robot_model_loader::RobotModelLoaderPtr rm_loader_;
   robot_model::RobotModelConstPtr robot_model_;
+
+  collision_detection::CollisionPluginLoader collision_loader_;
 
   class DynamicReconfigureImpl;
   DynamicReconfigureImpl *reconfigure_impl_;

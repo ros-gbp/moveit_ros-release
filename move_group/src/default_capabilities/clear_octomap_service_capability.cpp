@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2014, SRI, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,50 +32,35 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Ioan Sucan */
+/* Author: David Hershberger */
 
-#include <moveit/benchmarks/benchmarks_utils.h>
-#include <pluginlib/class_loader.h>
-#include <moveit/planning_interface/planning_interface.h>
-#include <boost/scoped_ptr.hpp>
-#include <unistd.h>
+#include "clear_octomap_service_capability.h"
+#include <moveit/move_group/capability_names.h>
 
-namespace moveit_benchmarks
+move_group::ClearOctomapService::ClearOctomapService():
+  MoveGroupCapability("ExecutePathService")
 {
-
-// keep this function in a separate file so we don't have the class_loader and mongoDB in the same namespace
-// as that couses boost::filesystem version issues (redefinition of symbols)
-std::vector<std::string> benchmarkGetAvailablePluginNames()
-{
-  // load the planning plugins
-  boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager> > planner_plugin_loader;
-  try
-  {
-    planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>("moveit_core", "planning_interface::PlannerManager"));
-  }
-  catch(pluginlib::PluginlibException& ex)
-  {
-    std::cerr << "Exception while creating planning plugin loader " << ex.what() << std::endl;
-  }
-
-  if (planner_plugin_loader)
-    return planner_plugin_loader->getDeclaredClasses();
-  else
-    return std::vector<std::string>();
 }
 
-std::string getHostname()
+void move_group::ClearOctomapService::initialize()
 {
-  static const int BUF_SIZE = 1024;
-  char buffer[BUF_SIZE];
-  int err = gethostname(buffer, sizeof(buffer));
-  if (err != 0)
-    return std::string();
-  else
-  {
-    buffer[BUF_SIZE - 1] = '\0';
-    return std::string(buffer);
-  }
+  service_ = root_node_handle_.advertiseService(CLEAR_OCTOMAP_SERVICE_NAME, &ClearOctomapService::clearOctomap, this);
 }
 
+bool move_group::ClearOctomapService::clearOctomap(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+{
+  if (!context_->planning_scene_monitor_)
+  {
+    ROS_ERROR("Cannot clear octomap since planning_scene_monitor_ does not exist.");
+    return true;
+  }
+
+  ROS_INFO("Clearing octomap...");
+  context_->planning_scene_monitor_->clearOctomap();
+  ROS_INFO("Octomap cleared.");
+  return true;
 }
+
+
+#include <class_loader/class_loader.h>
+CLASS_LOADER_REGISTER_CLASS(move_group::ClearOctomapService, move_group::MoveGroupCapability)

@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2014, SRI, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,50 +32,32 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Ioan Sucan */
+/* Author: David Hershberger */
 
-#include <moveit/benchmarks/benchmarks_utils.h>
-#include <pluginlib/class_loader.h>
-#include <moveit/planning_interface/planning_interface.h>
-#include <boost/scoped_ptr.hpp>
-#include <unistd.h>
+#ifndef MOVEIT_MOVE_GROUP_CLEAR_OCTOMAP_SERVICE_CAPABILITY_
+#define MOVEIT_MOVE_GROUP_CLEAR_OCTOMAP_SERVICE_CAPABILITY_
 
-namespace moveit_benchmarks
+#include <moveit/move_group/move_group_capability.h>
+#include <std_srvs/Empty.h>
+
+namespace move_group
 {
 
-// keep this function in a separate file so we don't have the class_loader and mongoDB in the same namespace
-// as that couses boost::filesystem version issues (redefinition of symbols)
-std::vector<std::string> benchmarkGetAvailablePluginNames()
+class ClearOctomapService : public MoveGroupCapability
 {
-  // load the planning plugins
-  boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager> > planner_plugin_loader;
-  try
-  {
-    planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>("moveit_core", "planning_interface::PlannerManager"));
-  }
-  catch(pluginlib::PluginlibException& ex)
-  {
-    std::cerr << "Exception while creating planning plugin loader " << ex.what() << std::endl;
-  }
+public:
 
-  if (planner_plugin_loader)
-    return planner_plugin_loader->getDeclaredClasses();
-  else
-    return std::vector<std::string>();
-}
+  ClearOctomapService();
 
-std::string getHostname()
-{
-  static const int BUF_SIZE = 1024;
-  char buffer[BUF_SIZE];
-  int err = gethostname(buffer, sizeof(buffer));
-  if (err != 0)
-    return std::string();
-  else
-  {
-    buffer[BUF_SIZE - 1] = '\0';
-    return std::string(buffer);
-  }
-}
+  virtual void initialize();
+
+private:
+
+  bool clearOctomap(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+
+  ros::ServiceServer service_;
+};
 
 }
+
+#endif // MOVEIT_MOVE_GROUP_CLEAR_OCTOMAP_SERVICE_CAPABILITY_

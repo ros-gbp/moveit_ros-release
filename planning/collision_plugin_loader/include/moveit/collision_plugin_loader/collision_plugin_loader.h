@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2014 Fetch Robotics Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of Willow Garage nor the names of its
+ *   * Neither the name of Fetch Robotics nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,50 +32,43 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Ioan Sucan */
+#ifndef MOVEIT_COLLISION_PLUGIN_LOADER_COLLISION_PLUGIN_LOADER_H
+#define MOVEIT_COLLISION_PLUGIN_LOADER_COLLISION_PLUGIN_LOADER_H
 
-#include <moveit/benchmarks/benchmarks_utils.h>
-#include <pluginlib/class_loader.h>
-#include <moveit/planning_interface/planning_interface.h>
-#include <boost/scoped_ptr.hpp>
-#include <unistd.h>
+#include <ros/ros.h>
+#include <moveit/collision_detection/collision_plugin.h>
 
-namespace moveit_benchmarks
+namespace collision_detection
 {
 
-// keep this function in a separate file so we don't have the class_loader and mongoDB in the same namespace
-// as that couses boost::filesystem version issues (redefinition of symbols)
-std::vector<std::string> benchmarkGetAvailablePluginNames()
+/**
+ * @brief This is used to load the collision plugin
+ */
+class CollisionPluginLoader
 {
-  // load the planning plugins
-  boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager> > planner_plugin_loader;
-  try
-  {
-    planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>("moveit_core", "planning_interface::PlannerManager"));
-  }
-  catch(pluginlib::PluginlibException& ex)
-  {
-    std::cerr << "Exception while creating planning plugin loader " << ex.what() << std::endl;
-  }
+public:
+  CollisionPluginLoader();
+  ~CollisionPluginLoader();
 
-  if (planner_plugin_loader)
-    return planner_plugin_loader->getDeclaredClasses();
-  else
-    return std::vector<std::string>();
-}
+  /** @brief This can be called on a new planning scene to setup the collision detector. */
+  void setupScene(ros::NodeHandle& nh, const planning_scene::PlanningScenePtr& scene);
 
-std::string getHostname()
-{
-  static const int BUF_SIZE = 1024;
-  char buffer[BUF_SIZE];
-  int err = gethostname(buffer, sizeof(buffer));
-  if (err != 0)
-    return std::string();
-  else
-  {
-    buffer[BUF_SIZE - 1] = '\0';
-    return std::string(buffer);
-  }
-}
+  /**
+   * @brief Load a collision detection robot/world into a planning scene instance.
+   * @param name The plugin name.
+   * @param scene The planning scene instance.
+   * @param exclusive If true, sets the new detection robot/world to be the only one.
+   * @return True if collision robot/world were added to scene.
+   */
+  bool activate(const std::string& name,
+    const planning_scene::PlanningScenePtr& scene,
+    bool exclusive);
 
-}
+private:
+  class CollisionPluginLoaderImpl;
+  boost::shared_ptr<CollisionPluginLoaderImpl> loader_;
+};
+
+}  // namespace collision_detection
+
+#endif  // MOVEIT_COLLISION_PLUGIN_LOADER_COLLISION_PLUGIN_LOADER_H

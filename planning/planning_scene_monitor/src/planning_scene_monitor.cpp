@@ -170,12 +170,14 @@ void planning_scene_monitor::PlanningSceneMonitor::initialize(const planning_sce
   {
     robot_model_ = rm_loader_->getModel();
     scene_ = scene;
+    collision_loader_.setupScene(nh_, scene_);
     scene_const_ = scene_;
     if (!scene_)
     {
       try
       {
         scene_.reset(new planning_scene::PlanningScene(rm_loader_->getModel()));
+        collision_loader_.setupScene(nh_, scene_);
         scene_const_ = scene_;
         configureCollisionMatrix(scene_);
         configureDefaultPadding();
@@ -214,6 +216,14 @@ void planning_scene_monitor::PlanningSceneMonitor::initialize(const planning_sce
   last_update_time_ = ros::Time::now();
   last_state_update_ = ros::WallTime::now();
   dt_state_update_ = ros::WallDuration(0.1);
+
+  double temp_wait_time;
+  nh_.param(
+      robot_description_ + "_planning/shape_transform_cache_lookup_wait_time",
+      temp_wait_time,
+      0.05);
+  shape_transform_cache_lookup_wait_time_ = ros::Duration(temp_wait_time);
+
   state_update_pending_ = false;
   state_update_timer_ = nh_.createWallTimer(dt_state_update_,
                                             &PlanningSceneMonitor::stateUpdateTimerCallback,
@@ -445,6 +455,13 @@ bool planning_scene_monitor::PlanningSceneMonitor::requestPlanningSceneState(con
 void planning_scene_monitor::PlanningSceneMonitor::newPlanningSceneCallback(const moveit_msgs::PlanningSceneConstPtr &scene)
 {
   newPlanningSceneMessage(*scene);
+}
+
+void planning_scene_monitor::PlanningSceneMonitor::clearOctomap()
+{
+  octomap_monitor_->getOcTreePtr()->lockWrite();
+  octomap_monitor_->getOcTreePtr()->clear();
+  octomap_monitor_->getOcTreePtr()->unlockWrite();
 }
 
 void planning_scene_monitor::PlanningSceneMonitor::newPlanningSceneMessage(const moveit_msgs::PlanningScene& scene)
@@ -837,6 +854,7 @@ bool planning_scene_monitor::PlanningSceneMonitor::getShapeTransformCache(const 
     for (LinkShapeHandles::const_iterator it = link_shape_handles_.begin() ; it != link_shape_handles_.end() ; ++it)
     {
       tf::StampedTransform tr;
+      tf_->waitForTransform(target_frame, it->first->getName(), target_time, shape_transform_cache_lookup_wait_time_);
       tf_->lookupTransform(target_frame, it->first->getName(), target_time, tr);
       Eigen::Affine3d ttr;
       tf::transformTFToEigen(tr, ttr);
@@ -846,6 +864,7 @@ bool planning_scene_monitor::PlanningSceneMonitor::getShapeTransformCache(const 
     for (AttachedBodyShapeHandles::const_iterator it = attached_body_shape_handles_.begin() ; it != attached_body_shape_handles_.end() ; ++it)
     {
       tf::StampedTransform tr;
+      tf_->waitForTransform(target_frame, it->first->getAttachedLinkName(), target_time, shape_transform_cache_lookup_wait_time_);
       tf_->lookupTransform(target_frame, it->first->getAttachedLinkName(), target_time, tr);
       Eigen::Affine3d transform;
       tf::transformTFToEigen(tr, transform);
@@ -854,6 +873,7 @@ bool planning_scene_monitor::PlanningSceneMonitor::getShapeTransformCache(const 
     }
     {
       tf::StampedTransform tr;
+      tf_->waitForTransform(target_frame, scene_->getPlanningFrame(), target_time, shape_transform_cache_lookup_wait_time_);
       tf_->lookupTransform(target_frame, scene_->getPlanningFrame(), target_time, tr);
       Eigen::Affine3d transform;
       tf::transformTFToEigen(tr, transform);
@@ -1247,10 +1267,19 @@ void planning_scene_monitor::PlanningSceneMonitor::configureDefaultPadding()
     default_attached_padd_ = 0.0;
     return;
   }
-  nh_.param(robot_description_ + "_planning/default_robot_padding", default_robot_padd_, 0.0);
-  nh_.param(robot_description_ + "_planning/default_robot_scale", default_robot_scale_, 1.0);
-  nh_.param(robot_description_ + "_planning/default_object_padding", default_object_padd_, 0.0);
-  nh_.param(robot_description_ + "_planning/default_attached_padding", default_attached_padd_, 0.0);
-  nh_.param(robot_description_ + "_planning/default_robot_link_padding", default_robot_link_padd_, std::map<std::string, double>());
-  nh_.param(robot_description_ + "_planning/default_robot_link_scale", default_robot_link_scale_, std::map<std::string, double>());
+
+  // Ensure no leading slash creates a bad param server address
+  static const std::string robot_description = (robot_description_[0] == '/') ? robot_description_.substr(1) : robot_description_;
+
+  nh_.param(robot_description + "_planning/default_robot_padding", default_robot_padd_, 0.0);
+  nh_.param(robot_description + "_planning/default_robot_scale", default_robot_scale_, 1.0);
+  nh_.param(robot_description + "_planning/default_object_padding", default_object_padd_, 0.0);
+  nh_.param(robot_description + "_planning/default_attached_padding", default_attached_padd_, 0.0);
+  nh_.param(robot_description + "_planning/default_robot_link_padding", default_robot_link_padd_, std::map<std::string, double>());
+  nh_.param(robot_description + "_planning/default_robot_link_scale", default_robot_link_scale_, std::map<std::string, double>());
+
+  ROS_DEBUG_STREAM_NAMED("planning_scene_monitor", "Loaded " << default_robot_link_padd_.size()
+                         << " default link paddings");
+  ROS_DEBUG_STREAM_NAMED("planning_scene_monitor", "Loaded " << default_robot_link_scale_.size()
+                         << " default link scales");
 }
