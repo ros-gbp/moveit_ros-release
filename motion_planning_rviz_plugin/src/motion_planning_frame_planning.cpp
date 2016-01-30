@@ -123,6 +123,7 @@ void MotionPlanningFrame::computePlanButtonClicked()
     // Failure
     ui_->result_label->setText("Failed");
   }
+  Q_EMIT planningFinished();
 }
 
 void MotionPlanningFrame::computeExecuteButtonClicked()
@@ -252,7 +253,12 @@ void MotionPlanningFrame::populatePlannersList(const moveit_msgs::PlannerInterfa
     for (std::size_t i = 0 ; i < desc.planner_ids.size() ; ++i)
       ui_->planning_algorithm_combo_box->addItem(QString::fromStdString(desc.planner_ids[i]));
   ui_->planning_algorithm_combo_box->insertItem(0, "<unspecified>");
-  ui_->planning_algorithm_combo_box->setCurrentIndex(0);
+
+  // retrieve default planner config from parameter server
+  const std::string& default_planner_config = move_group_->getDefaultPlannerId(found_group ? group : std::string());
+  int defaultIndex = ui_->planning_algorithm_combo_box->findText(QString::fromStdString(default_planner_config));
+  if (defaultIndex < 0) defaultIndex = 0; // 0 is <unspecified> fallback
+  ui_->planning_algorithm_combo_box->setCurrentIndex(defaultIndex);
 }
 
 void MotionPlanningFrame::populateConstraintsList()
@@ -295,7 +301,7 @@ void MotionPlanningFrame::configureWorkspace()
 {
   robot_model::VariableBounds bx, by, bz;
   bx.position_bounded_ = by.position_bounded_ = bz.position_bounded_ = true;
-  
+
   robot_model::JointModel::Bounds b(3);
   bx.min_position_ = ui_->wcenter_x->value() - ui_->wsize_x->value() / 2.0;
   bx.max_position_ = ui_->wcenter_x->value() + ui_->wsize_x->value() / 2.0;
@@ -303,7 +309,7 @@ void MotionPlanningFrame::configureWorkspace()
   by.max_position_ = ui_->wcenter_y->value() + ui_->wsize_y->value() / 2.0;
   bz.min_position_ = ui_->wcenter_z->value() - ui_->wsize_z->value() / 2.0;
   bz.max_position_ = ui_->wcenter_z->value() + ui_->wsize_z->value() / 2.0;
-  
+
   if (move_group_)
     move_group_->setWorkspace(bx.min_position_, by.min_position_, bz.min_position_,
                               bx.max_position_, by.max_position_, bz.max_position_);
@@ -377,5 +383,5 @@ void MotionPlanningFrame::remoteUpdateGoalStateCallback(const std_msgs::EmptyCon
   }
 }
 
-  
+
 }
