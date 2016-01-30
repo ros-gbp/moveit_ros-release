@@ -148,7 +148,7 @@ PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool s
                              SLOT(changedSceneRobotCollisionEnabled()), this);
 
     robot_alpha_property_ =
-      new rviz::FloatProperty( "Robot Alpha", 0.5f, "Specifies the alpha for the robot links",
+      new rviz::FloatProperty( "Robot Alpha", 1.0f, "Specifies the alpha for the robot links",
                                robot_category_,
                                SLOT( changedRobotSceneAlpha() ), this );
     robot_alpha_property_->setMin( 0.0 );
@@ -205,6 +205,8 @@ void PlanningSceneDisplay::onInitialize()
     planning_scene_robot_->setVisible(true);
     planning_scene_robot_->setVisualVisible(scene_robot_visual_enabled_property_->getBool());
     planning_scene_robot_->setCollisionVisible(scene_robot_collision_enabled_property_->getBool());
+    changedRobotSceneAlpha();
+    changedAttachedBodyColor();
   }
 }
 
@@ -376,8 +378,10 @@ void PlanningSceneDisplay::changedPlanningSceneTopic()
   if (planning_scene_monitor_ && planning_scene_topic_property_)
   {
     planning_scene_monitor_->startSceneMonitor(planning_scene_topic_property_->getStdString());
-    planning_scene_monitor_->requestPlanningSceneState(
-        ros::names::append(getMoveGroupNS(),planning_scene_monitor::PlanningSceneMonitor::DEFAULT_PLANNING_SCENE_SERVICE));
+    std::string service_name = planning_scene_monitor::PlanningSceneMonitor::DEFAULT_PLANNING_SCENE_SERVICE;
+    if (!getMoveGroupNS().empty())
+      service_name = ros::names::append(getMoveGroupNS(), service_name);
+    planning_scene_monitor_->requestPlanningSceneState(service_name);
   }
 }
 
