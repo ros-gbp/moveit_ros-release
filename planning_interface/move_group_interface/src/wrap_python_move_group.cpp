@@ -38,6 +38,9 @@
 #include <moveit/py_bindings_tools/roscpp_initializer.h>
 #include <moveit/py_bindings_tools/py_conversions.h>
 #include <moveit/py_bindings_tools/serialize_msg.h>
+#include <moveit/robot_state/conversions.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf_conversions/tf_eigen.h>
 
@@ -343,6 +346,13 @@ public:
     return execute(plan);
   }
 
+  bool asyncExecutePython(const std::string &plan_str)
+  {
+    MoveGroup::Plan plan;
+    py_bindings_tools::deserializeMsg(plan_str, plan.trajectory_);
+    return asyncExecute(plan);
+  }
+
   std::string getPlanPython()
   {
     MoveGroup::Plan plan;
@@ -389,7 +399,41 @@ public:
      return constraints_str;
   }
 
+  std::string retimeTrajectory(const std::string& ref_state_str,
+                               const std::string& traj_str,
+                               double velocity_scaling_factor)
+  {
+    // Convert reference state message to object
+    moveit_msgs::RobotState ref_state_msg;
+    py_bindings_tools::deserializeMsg(ref_state_str, ref_state_msg);
+    moveit::core::RobotState ref_state_obj(getRobotModel());
+    if(moveit::core::robotStateMsgToRobotState(ref_state_msg, ref_state_obj, true))
+    {
+      // Convert trajectory message to object
+      moveit_msgs::RobotTrajectory traj_msg;
+      py_bindings_tools::deserializeMsg(traj_str, traj_msg);
+      robot_trajectory::RobotTrajectory traj_obj(getRobotModel(), getName());
+      traj_obj.setRobotTrajectoryMsg(ref_state_obj, traj_msg);
+
+      // Do the actual retiming
+      trajectory_processing::IterativeParabolicTimeParameterization time_param;
+      time_param.computeTimeStamps(traj_obj, velocity_scaling_factor);
+
+      // Convert the retimed trajectory back into a message
+      traj_obj.getRobotTrajectoryMsg(traj_msg);
+      std::string traj_str = py_bindings_tools::serializeMsg(traj_msg);
+
+      // Return it.
+      return traj_str;
+    }
+    else
+    {
+      ROS_ERROR("Unable to convert RobotState message to RobotState instance.");
+      return "";
+    }
+  }
 };
+
 
 static void wrap_move_group_interface()
 {
@@ -398,6 +442,7 @@ static void wrap_move_group_interface()
   MoveGroupClass.def("async_move", &MoveGroupWrapper::asyncMovePython);
   MoveGroupClass.def("move", &MoveGroupWrapper::movePython);
   MoveGroupClass.def("execute", &MoveGroupWrapper::executePython);
+  MoveGroupClass.def("async_execute", &MoveGroupWrapper::asyncExecutePython);
   moveit::planning_interface::MoveItErrorCode (MoveGroupWrapper::*pick_1)(const std::string&) = &MoveGroupWrapper::pick;
   MoveGroupClass.def("pick", pick_1);
   MoveGroupClass.def("pick", &MoveGroupWrapper::pickGrasp);
@@ -487,12 +532,15 @@ static void wrap_move_group_interface()
   MoveGroupClass.def("set_workspace", &MoveGroupWrapper::setWorkspace);
   MoveGroupClass.def("set_planning_time", &MoveGroupWrapper::setPlanningTime);
   MoveGroupClass.def("get_planning_time", &MoveGroupWrapper::getPlanningTime);
+  MoveGroupClass.def("set_max_velocity_scaling_factor", &MoveGroupWrapper::setMaxVelocityScalingFactor);
   MoveGroupClass.def("set_planner_id", &MoveGroupWrapper::setPlannerId);
+  MoveGroupClass.def("set_num_planning_attempts", &MoveGroupWrapper::setNumPlanningAttempts);
   MoveGroupClass.def("compute_plan", &MoveGroupWrapper::getPlanPython);
   MoveGroupClass.def("compute_cartesian_path", &MoveGroupWrapper::computeCartesianPathPython);
   MoveGroupClass.def("set_support_surface_name", &MoveGroupWrapper::setSupportSurfaceName);
   MoveGroupClass.def("attach_object", &MoveGroupWrapper::attachObjectPython);
   MoveGroupClass.def("detach_object", &MoveGroupWrapper::detachObject);
+  MoveGroupClass.def("retime_trajectory", &MoveGroupWrapper::retimeTrajectory);
 }
 
 }
