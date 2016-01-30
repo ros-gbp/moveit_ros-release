@@ -1,3 +1,35 @@
+## moveit_ros (indigo) - 0.7.0-0
+
+The packages in the `moveit_ros` repository were released into the `indigo` distro by running `/usr/bin/bloom-release moveit_ros --track indigo --rosdistro indigo` on `Sat, 30 Jan 2016 21:04:05 -0000`
+
+These packages were released:
+- `moveit_ros`
+- `moveit_ros_benchmarks`
+- `moveit_ros_benchmarks_gui`
+- `moveit_ros_manipulation`
+- `moveit_ros_move_group`
+- `moveit_ros_perception`
+- `moveit_ros_planning`
+- `moveit_ros_planning_interface`
+- `moveit_ros_robot_interaction`
+- `moveit_ros_visualization`
+- `moveit_ros_warehouse`
+
+Version of package(s) in repository `moveit_ros`:
+- upstream repository: https://github.com/ros-planning/moveit_ros.git
+- release repository: https://github.com/ros-gbp/moveit_ros-release.git
+- rosdistro version: `0.6.5-0`
+- old version: `0.6.5-0`
+- new version: `0.7.0-0`
+
+Versions of tools used:
+- bloom version: `0.5.20`
+- catkin_pkg version: `0.2.10`
+- rosdep version: `0.11.4`
+- rosdistro version: `0.4.2`
+- vcstools version: `0.1.38`
+
+
 ## moveit_ros (jade) - 0.6.5-0
 
 The packages in the `moveit_ros` repository were released into the `jade` distro by running `/usr/bin/bloom-release -r jade -t jade moveit_ros` on `Thu, 14 May 2015 07:22:04 -0000`
