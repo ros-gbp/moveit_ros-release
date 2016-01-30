@@ -115,7 +115,7 @@ public:
 
   /** @brief Set the state \e upd to the current state maintained by this class. */
   void setToCurrentState(robot_state::RobotState &upd) const;
-  
+
   /** @brief Get the time stamp for the current state */
   ros::Time getCurrentStateTime() const;
 
@@ -166,7 +166,7 @@ public:
 private:
 
   void jointStateCallback(const sensor_msgs::JointStateConstPtr &joint_state);
-  bool isPassiveDOF(const std::string &dof) const;
+  bool isPassiveOrMimicDOF(const std::string &dof) const;
 
   ros::NodeHandle                              nh_;
   boost::shared_ptr<tf::Transformer>           tf_;
@@ -179,7 +179,7 @@ private:
   ros::Subscriber                              joint_state_subscriber_;
   ros::Time                                    current_state_time_;
   ros::Time                                    last_tf_update_;
-  
+
   mutable boost::mutex                         state_update_lock_;
   std::vector< JointStateUpdateCallback >      update_callbacks_;
 };
