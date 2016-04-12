@@ -1,21 +1,37 @@
-set(MOVEIT_LIB_NAME moveit_benchmark_execution)
+cmake_minimum_required(VERSION 2.8.3)
+project(moveit_ros_benchmarks)
 
-add_library(${MOVEIT_LIB_NAME} src/benchmark_execution.cpp src/benchmarks_utils.cpp)
-target_link_libraries(${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
-add_executable(moveit_run_benchmark src/run_benchmarks.cpp)
-target_link_libraries(moveit_run_benchmark ${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+find_package(Boost REQUIRED COMPONENTS date_time filesystem program_options system thread)
 
-install(
-  TARGETS
-    ${MOVEIT_LIB_NAME}
-    moveit_run_benchmark
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
-install(
-  PROGRAMS scripts/moveit_benchmark_statistics.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+find_package(catkin REQUIRED COMPONENTS
+  moveit_ros_planning
+  moveit_ros_warehouse
+  tf
+  eigen_conversions
+  roscpp
+  rosconsole
 )
 
-install(DIRECTORY include/ DESTINATION include)
+catkin_package(
+  INCLUDE_DIRS
+    benchmarks/include
+  LIBRARIES
+    moveit_benchmark_execution
+  CATKIN_DEPENDS
+    moveit_ros_planning
+    moveit_ros_warehouse
+)
+
+include_directories(benchmarks/include)
+
+include_directories(${catkin_INCLUDE_DIRS})
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+
+link_directories(${Boost_LIBRARY_DIRS})
+link_directories(${catkin_LIBRARY_DIRS})
+
+add_subdirectory(benchmarks)
