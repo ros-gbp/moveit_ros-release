@@ -43,7 +43,8 @@ planning_scene_monitor::CurrentStateMonitor::CurrentStateMonitor(const robot_mod
   , robot_model_(robot_model)
   , robot_state_(robot_model)
   , state_monitor_started_(false)
-  , error_(std::numeric_limits<float>::epsilon())
+  , copy_dynamics_(false)
+  , error_(std::numeric_limits<double>::epsilon())
 {
   robot_state_.setToDefaultValues();
 }
@@ -140,11 +141,12 @@ std::string planning_scene_monitor::CurrentStateMonitor::getMonitoredTopic() con
     return "";
 }
 
-bool planning_scene_monitor::CurrentStateMonitor::isPassiveDOF(const std::string &dof) const
+bool planning_scene_monitor::CurrentStateMonitor::isPassiveOrMimicDOF(const std::string &dof) const
 {
   if (robot_model_->hasJointModel(dof))
   {
-    if (robot_model_->getJointModel(dof)->isPassive())
+    if (robot_model_->getJointModel(dof)->isPassive() ||
+        robot_model_->getJointModel(dof)->getMimic())
       return true;
   }
   else
@@ -155,7 +157,8 @@ bool planning_scene_monitor::CurrentStateMonitor::isPassiveDOF(const std::string
     {
       std::string joint_name = dof.substr(0, slash);
       if (robot_model_->hasJointModel(joint_name))
-        if (robot_model_->getJointModel(joint_name)->isPassive())
+        if (robot_model_->getJointModel(joint_name)->isPassive() ||
+            robot_model_->getJointModel(joint_name)->getMimic())
           return true;
     }
   }
@@ -170,7 +173,7 @@ bool planning_scene_monitor::CurrentStateMonitor::haveCompleteState() const
   for (std::size_t i = 0 ; i < dof.size() ; ++i)
     if (joint_time_.find(dof[i]) == joint_time_.end())
     {
-      if (!isPassiveDOF(dof[i]))
+      if (!isPassiveOrMimicDOF(dof[i]))
       {
         ROS_DEBUG("Joint variable '%s' has never been updated", dof[i].c_str());
         result = false;
@@ -186,7 +189,7 @@ bool planning_scene_monitor::CurrentStateMonitor::haveCompleteState(std::vector<
   boost::mutex::scoped_lock slock(state_update_lock_);
   for (std::size_t i = 0 ; i < dof.size() ; ++i)
     if (joint_time_.find(dof[i]) == joint_time_.end())
-      if (!isPassiveDOF(dof[i]))
+      if (!isPassiveOrMimicDOF(dof[i]))
       {
         missing_states.push_back(dof[i]);
         result = false;
@@ -203,7 +206,7 @@ bool planning_scene_monitor::CurrentStateMonitor::haveCompleteState(const ros::D
   boost::mutex::scoped_lock slock(state_update_lock_);
   for (std::size_t i = 0 ; i < dof.size() ; ++i)
   {
-    if (isPassiveDOF(dof[i]))
+    if (isPassiveOrMimicDOF(dof[i]))
       continue;
     std::map<std::string, ros::Time>::const_iterator it = joint_time_.find(dof[i]);
     if (it == joint_time_.end())
@@ -232,7 +235,7 @@ bool planning_scene_monitor::CurrentStateMonitor::haveCompleteState(const ros::D
   boost::mutex::scoped_lock slock(state_update_lock_);
   for (std::size_t i = 0 ; i < dof.size() ; ++i)
   {
-    if (isPassiveDOF(dof[i]))
+    if (isPassiveOrMimicDOF(dof[i]))
       continue;
     std::map<std::string, ros::Time>::const_iterator it = joint_time_.find(dof[i]);
     if (it == joint_time_.end())
@@ -301,8 +304,8 @@ void planning_scene_monitor::CurrentStateMonitor::jointStateCallback(const senso
     return;
   }
   bool update = false;
-  
-  {    
+
+  {
     boost::mutex::scoped_lock _(state_update_lock_);
     // read the received values, and update their time stamps
     std::size_t n = joint_state->name.size();
@@ -322,14 +325,30 @@ void planning_scene_monitor::CurrentStateMonitor::jointStateCallback(const senso
       {
         update = true;
         robot_state_.setJointPositions(jm, &(joint_state->position[i]));
-        
+
+        // optionally copy velocities and effort
+        if (copy_dynamics_)
+        {
+          // check if velocities exist
+          if (joint_state->name.size() == joint_state->velocity.size())
+          {
+            robot_state_.setJointVelocities(jm, &(joint_state->velocity[i]));
+
+            // check if effort exist. assume they are not useful if no velocities were passed in
+            if (joint_state->name.size() == joint_state->effort.size())
+            {
+              robot_state_.setJointEfforts(jm, &(joint_state->effort[i]));
+            }
+          }
+        }
+
         // continuous joints wrap, so we don't modify them (even if they are outside bounds!)
         if (jm->getType() == robot_model::JointModel::REVOLUTE)
           if (static_cast<const robot_model::RevoluteJointModel*>(jm)->isContinuous())
             continue;
-        
+
         const robot_model::VariableBounds &b = jm->getVariableBounds()[0]; // only one variable in the joint, so we get its bounds
-        
+
         // if the read variable is 'almost' within bounds (up to error_ difference), then consider it to be within bounds
         if (joint_state->position[i] < b.min_position_ && joint_state->position[i] >= b.min_position_ - error_)
           robot_state_.setJointPositions(jm, &b.min_position_);
@@ -338,14 +357,14 @@ void planning_scene_monitor::CurrentStateMonitor::jointStateCallback(const senso
             robot_state_.setJointPositions(jm, &b.max_position_);
       }
     }
-    
+
     // read root transform, if needed
     if (tf_ && (robot_model_->getRootJoint()->getType() == robot_model::JointModel::PLANAR ||
                 robot_model_->getRootJoint()->getType() == robot_model::JointModel::FLOATING))
     {
       const std::string &child_frame = robot_model_->getRootLink()->getName();
       const std::string &parent_frame = robot_model_->getModelFrame();
-      
+
       std::string err;
       ros::Time tm;
       tf::StampedTransform transf;
@@ -373,11 +392,11 @@ void planning_scene_monitor::CurrentStateMonitor::jointStateCallback(const senso
           joint_time_[vars[j]] = tm;
         Eigen::Affine3d eigen_transf;
         tf::transformTFToEigen(transf, eigen_transf);
-        robot_state_.setJointPositions(robot_model_->getRootJoint(), eigen_transf);        
+        robot_state_.setJointPositions(robot_model_->getRootJoint(), eigen_transf);
       }
     }
   }
-  
+
   // callbacks, if needed
   if (update)
     for (std::size_t i = 0 ; i < update_callbacks_.size() ; ++i)
