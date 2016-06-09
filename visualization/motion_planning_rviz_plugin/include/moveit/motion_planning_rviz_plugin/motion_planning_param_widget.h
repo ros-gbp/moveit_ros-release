@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2015, University of Colorado, Boulder
+ *  Copyright (c) 2012, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of the Univ of CO, Boulder nor the names of its
+ *   * Neither the name of Willow Garage nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,70 +32,46 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Dave Coleman
-   Desc:   Wraps a trajectory_visualization playback class for Rviz into a stand alone display
-*/
+/* Author: Robert Haschke */
 
-#ifndef MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_DISPLAY
-#define MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_DISPLAY
+#ifndef MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_PARAM_WIDGET_
+#define MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_PARAM_WIDGET_
 
-#include <rviz/display.h>
-
-#include <moveit/rviz_plugin_render_tools/trajectory_visualization.h>
-#ifndef Q_MOC_RUN
-#include <ros/ros.h>
-#include <moveit/rdf_loader/rdf_loader.h>
-#endif
-
-namespace rviz
-{
-class StringProperty;
-}
+#include <rviz/properties/property_tree_widget.h>
+#include <moveit/macros/class_forward.h>
+namespace moveit { namespace planning_interface {
+MOVEIT_CLASS_FORWARD(MoveGroup);
+}}
 
 namespace moveit_rviz_plugin
 {
 
-class TrajectoryDisplay : public rviz::Display
+class MotionPlanningParamWidget : public rviz::PropertyTreeWidget
 {
-  Q_OBJECT
-//friend class TrajectoryVisualization; // allow the visualization class to access the display
-
+	Q_OBJECT
 public:
+  MotionPlanningParamWidget(QWidget *parent = 0);
+  ~MotionPlanningParamWidget();
 
-  TrajectoryDisplay();
+  void setMoveGroup(const moveit::planning_interface::MoveGroupPtr &mg);
+  void setGroupName(const std::string &group_name);
 
-  virtual ~TrajectoryDisplay();
-
-  void loadRobotModel();
-
-  virtual void update(float wall_dt, float ros_dt);
-  virtual void reset();
-
-  // overrides from Display
-  virtual void onInitialize();
-  virtual void onEnable();
-  virtual void onDisable();
+public Q_SLOTS:
+  void setPlannerId(const std::string &planner_id);
 
 private Q_SLOTS:
-  /**
-   * \brief Slot Event Functions
-   */
-  void changedRobotDescription();
+  void changedValue();
+private:
+  rviz::Property *createPropertyTree();
 
-protected:
+private:
+  rviz::PropertyTreeModel *property_tree_model_;
 
-  // The trajectory playback component
-  TrajectoryVisualizationPtr trajectory_visual_;
-
-  // Load robot model
-  rdf_loader::RDFLoaderPtr rdf_loader_;
-  robot_model::RobotModelConstPtr robot_model_;
-  robot_state::RobotStatePtr robot_state_;
-
-  // Properties
-  rviz::StringProperty* robot_description_property_;
+  moveit::planning_interface::MoveGroupPtr move_group_;
+  std::string group_name_;
+  std::string planner_id_;
 };
 
-} // namespace moveit_rviz_plugin
+}
 
 #endif
