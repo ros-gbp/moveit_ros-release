@@ -2,6 +2,11 @@
 Changelog for package moveit_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.6 (2016-06-08)
+------------------
+* Removed trailing whitespace from entire repository
+* Contributors: Dave Coleman
+
 0.6.5 (2015-01-24)
 ------------------
 * update maintainers
