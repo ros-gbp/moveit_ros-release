@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>702</width>
-    <height>395</height>
+    <width>654</width>
+    <height>430</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -26,7 +26,7 @@
       <bool>false</bool>
      </property>
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="context">
       <attribute name="title">
@@ -38,43 +38,70 @@
          <property name="title">
           <string>Planning Library</string>
          </property>
-         <layout class="QHBoxLayout" name="horizontalLayout_8">
+         <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="2,3">
           <item>
-           <widget class="QLabel" name="library_label">
-            <property name="text">
-             <string>Planning Library Name</string>
-            </property>
-           </widget>
+           <layout class="QVBoxLayout" name="verticalLayout_13">
+            <item>
+             <widget class="QLabel" name="library_label">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Planning Library Name</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="planning_algorithm_combo_box">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer_10">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
           </item>
           <item>
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <widget class="QComboBox" name="planning_algorithm_combo_box">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="publish_current_scene_button">
-            <property name="text">
-             <string>&amp;Publish Current Scene</string>
-            </property>
-           </widget>
+           <layout class="QVBoxLayout" name="verticalLayout_14">
+            <item>
+             <widget class="QLabel" name="label_15">
+              <property name="text">
+               <string>Planner Parameters</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="moveit_rviz_plugin::MotionPlanningParamWidget" name="planner_param_treeview">
+              <property name="indentation">
+               <number>0</number>
+              </property>
+              <property name="rootIsDecorated">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
          </layout>
         </widget>
@@ -360,7 +387,7 @@
                   <rect>
                    <x>0</x>
                    <y>0</y>
-                   <width>205</width>
+                   <width>109</width>
                    <height>78</height>
                   </rect>
                  </property>
@@ -609,10 +636,10 @@
                </sizepolicy>
               </property>
               <property name="maximum">
-               <number>1000</number>
+               <double>1000.000000000000000</double>
               </property>
               <property name="value">
-               <number>10</number>
+               <double>10.000000000000000</double>
               </property>
              </widget>
             </item>
@@ -623,7 +650,7 @@
             <item>
              <widget class="QLabel" name="label_11">
               <property name="text">
-               <string>Velocity Scaling:</string>	               
+               <string>Velocity Scaling:</string>
               </property>
              </widget>
             </item>
@@ -1100,6 +1127,19 @@
          </property>
          <layout class="QHBoxLayout" name="horizontalLayout_14">
           <item>
+           <widget class="QPushButton" name="publish_current_scene_button">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>&amp;Publish Scene</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="horizontalSpacer_2">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
@@ -1564,6 +1604,87 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>moveit_rviz_plugin::MotionPlanningParamWidget</class>
+   <extends>QTreeView</extends>
+   <header location="global">moveit/motion_planning_rviz_plugin/motion_planning_param_widget.h</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>planning_algorithm_combo_box</tabstop>
+  <tabstop>planner_param_treeview</tabstop>
+  <tabstop>database_host</tabstop>
+  <tabstop>database_port</tabstop>
+  <tabstop>reset_db_button</tabstop>
+  <tabstop>database_connect_button</tabstop>
+  <tabstop>collision_aware_ik</tabstop>
+  <tabstop>approximate_ik</tabstop>
+  <tabstop>plan_button</tabstop>
+  <tabstop>execute_button</tabstop>
+  <tabstop>plan_and_execute_button</tabstop>
+  <tabstop>start_state_selection</tabstop>
+  <tabstop>use_start_state_button</tabstop>
+  <tabstop>goal_state_selection</tabstop>
+  <tabstop>use_goal_state_button</tabstop>
+  <tabstop>wcenter_x</tabstop>
+  <tabstop>wcenter_y</tabstop>
+  <tabstop>wcenter_z</tabstop>
+  <tabstop>wsize_x</tabstop>
+  <tabstop>wsize_y</tabstop>
+  <tabstop>wsize_z</tabstop>
+  <tabstop>planning_time</tabstop>
+  <tabstop>planning_attempts</tabstop>
+  <tabstop>exec_time_factor</tabstop>
+  <tabstop>allow_replanning</tabstop>
+  <tabstop>allow_looking</tabstop>
+  <tabstop>allow_external_program</tabstop>
+  <tabstop>path_constraints_combo_box</tabstop>
+  <tabstop>goal_tolerance</tabstop>
+  <tabstop>clear_octomap_button</tabstop>
+  <tabstop>detected_objects_list</tabstop>
+  <tabstop>detect_objects_button</tabstop>
+  <tabstop>support_surfaces_list</tabstop>
+  <tabstop>pick_button</tabstop>
+  <tabstop>place_button</tabstop>
+  <tabstop>roi_center_x</tabstop>
+  <tabstop>roi_center_y</tabstop>
+  <tabstop>roi_center_z</tabstop>
+  <tabstop>roi_size_x</tabstop>
+  <tabstop>roi_size_y</tabstop>
+  <tabstop>roi_size_z</tabstop>
+  <tabstop>collision_objects_list</tabstop>
+  <tabstop>import_file_button</tabstop>
+  <tabstop>import_url_button</tabstop>
+  <tabstop>remove_object_button</tabstop>
+  <tabstop>clear_scene_button</tabstop>
+  <tabstop>object_x</tabstop>
+  <tabstop>object_y</tabstop>
+  <tabstop>object_z</tabstop>
+  <tabstop>object_rx</tabstop>
+  <tabstop>object_ry</tabstop>
+  <tabstop>object_rz</tabstop>
+  <tabstop>scene_scale</tabstop>
+  <tabstop>publish_current_scene_button</tabstop>
+  <tabstop>export_scene_text_button</tabstop>
+  <tabstop>import_scene_text_button</tabstop>
+  <tabstop>planning_scene_tree</tabstop>
+  <tabstop>load_scene_button</tabstop>
+  <tabstop>load_query_button</tabstop>
+  <tabstop>delete_scene_button</tabstop>
+  <tabstop>delete_query_button</tabstop>
+  <tabstop>save_query_button</tabstop>
+  <tabstop>save_scene_button</tabstop>
+  <tabstop>list_states</tabstop>
+  <tabstop>load_state_button</tabstop>
+  <tabstop>clear_states_button</tabstop>
+  <tabstop>set_as_start_state_button</tabstop>
+  <tabstop>set_as_goal_state_button</tabstop>
+  <tabstop>remove_state_button</tabstop>
+  <tabstop>save_start_state_button</tabstop>
+  <tabstop>save_goal_state_button</tabstop>
+  <tabstop>status_text</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
