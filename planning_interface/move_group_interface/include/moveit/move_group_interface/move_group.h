@@ -127,6 +127,12 @@ public:
   /** \brief Get the name of the group this instance operates on */
   const std::string& getName() const;
 
+  /** \brief Get the RobotModel object. */
+  robot_model::RobotModelConstPtr getRobotModel() const;
+
+  /** \brief Get the ROS node handle of this instance operates on */
+  const ros::NodeHandle& getNodeHandle() const;
+
   /** \brief Get the name of the frame in which the robot is planning */
   const std::string& getPlanningFrame() const;
 
@@ -142,6 +148,19 @@ public:
   /** \brief Get the description of the planning plugin loaded by the action server */
   bool getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription &desc);
 
+  /** \brief Get the planner parameters for given group and planner_id */
+  std::map<std::string, std::string> getPlannerParams(const std::string &planner_id,
+                                                      const std::string &group="");
+
+  /** \brief Set the planner parameters for given group and planner_id */
+  void setPlannerParams(const std::string &planner_id,
+                        const std::string &group,
+                        const std::map<std::string, std::string> &params,
+                        bool bReplace = false);
+
+  /** \brief Get the default planner for a given group (or global default) */
+  std::string getDefaultPlannerId(const std::string &group="") const;
+
   /** \brief Specify a planner to be used for further planning */
   void setPlannerId(const std::string &planner_id);
 
@@ -155,9 +174,9 @@ public:
       Allowed values are in (0,1]. The maximum joint velocity specified
       in the robot model is multiplied by the factor. If outside valid range
       (imporantly, this includes it being set to 0.0), the factor is set to a
-      default value of 1.0 internally (i.e. maximum joint velocity) */  
+      default value of 1.0 internally (i.e. maximum joint velocity) */
   void setMaxVelocityScalingFactor(double max_velocity_scaling_factor);
-  
+
   /** \brief Get the number of seconds set by setPlanningTime() */
   double getPlanningTime() const;
 
@@ -228,8 +247,8 @@ public:
       This always sets all of the group's joint values.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If these values are out of bounds then false is returned BUT THE VALUES
       ARE STILL SET AS THE GOAL. */
   bool setJointValueTarget(const std::vector<double> &group_variable_values);
@@ -245,8 +264,8 @@ public:
       setJointValueTarget(getCurrentJointValues())).
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If these values are out of bounds then false is returned BUT THE VALUES
       ARE STILL SET AS THE GOAL. */
   bool setJointValueTarget(const std::map<std::string, double> &variable_values);
@@ -256,8 +275,8 @@ public:
       The target for all joints in the group are set to the value in \e robot_state.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If these values are out of bounds then false is returned BUT THE VALUES
       ARE STILL SET AS THE GOAL. */
   bool setJointValueTarget(const robot_state::RobotState &robot_state);
@@ -267,10 +286,10 @@ public:
       \e values MUST have one value for each variable in joint \e joint_name.
       \e values are set as the target for this joint.
       Other joint targets remain unchanged.
-      
+
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If these values are out of bounds then false is returned BUT THE VALUES
       ARE STILL SET AS THE GOAL. */
   bool setJointValueTarget(const std::string &joint_name, const std::vector<double> &values);
@@ -278,12 +297,12 @@ public:
   /** \brief Set the JointValueTarget and use it for future planning requests.
 
       Joint \e joint_name must be a 1-DOF joint.
-      \e value is set as the target for this joint.  
+      \e value is set as the target for this joint.
       Other joint targets remain unchanged.
-      
+
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If these values are out of bounds then false is returned BUT THE VALUES
       ARE STILL SET AS THE GOAL. */
   bool setJointValueTarget(const std::string &joint_name, double value);
@@ -292,10 +311,10 @@ public:
 
       \e state is used to set the target joint state values.
       Values not specified in \e state remain unchanged.
-      
+
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If these values are out of bounds then false is returned BUT THE VALUES
       ARE STILL SET AS THE GOAL. */
   bool setJointValueTarget(const sensor_msgs::JointState &state);
@@ -307,8 +326,8 @@ public:
       JointValueTarget is used as the target for planning.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If IK fails to find a solution then false is returned BUT THE PARTIAL
       RESULT OF IK IS STILL SET AS THE GOAL. */
   bool setJointValueTarget(const geometry_msgs::Pose &eef_pose, const std::string &end_effector_link = "");
@@ -320,8 +339,8 @@ public:
       JointValueTarget is used as the target for planning.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If IK fails to find a solution then false is returned BUT THE PARTIAL
       RESULT OF IK IS STILL SET AS THE GOAL. */
   bool setJointValueTarget(const geometry_msgs::PoseStamped &eef_pose, const std::string &end_effector_link = "");
@@ -333,8 +352,8 @@ public:
       JointValueTarget is used as the target for planning.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If IK fails to find a solution then false is returned BUT THE PARTIAL
       RESULT OF IK IS STILL SET AS THE GOAL. */
   bool setJointValueTarget(const Eigen::Affine3d &eef_pose, const std::string &end_effector_link = "");
@@ -346,8 +365,8 @@ public:
       JointValueTarget is used as the target for planning.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If IK fails to find a solution then an approximation is used. */
   bool setApproximateJointValueTarget(const geometry_msgs::Pose &eef_pose, const std::string &end_effector_link = "");
 
@@ -358,8 +377,8 @@ public:
       JointValueTarget is used as the target for planning.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If IK fails to find a solution then an approximation is used. */
   bool setApproximateJointValueTarget(const geometry_msgs::PoseStamped &eef_pose, const std::string &end_effector_link = "");
 
@@ -370,13 +389,13 @@ public:
       JointValueTarget is used as the target for planning.
 
       After this call, the JointValueTarget is used \b instead of any
-      previously set Position, Orientation, or Pose targets. 
-      
+      previously set Position, Orientation, or Pose targets.
+
       If IK fails to find a solution then an approximation is used. */
   bool setApproximateJointValueTarget(const Eigen::Affine3d &eef_pose, const std::string &end_effector_link = "");
 
   /** \brief Set the joint state goal to a random joint configuration
-        
+
       After this call, the JointValueTarget is used \b instead of any
       previously set Position, Orientation, or Pose targets. */
   void setRandomTarget();
@@ -471,7 +490,7 @@ public:
       respective lists.  End effectors which do not matter (i.e. can end up in
       any position) can have their pose targets disabled by calling
       clearPoseTarget() for that end_effector_link.
-      
+
       This new orientation target replaces any pre-existing JointValueTarget or
       pre-existing Position, Orientation, or Pose target(s) for this \e
       end_effector_link. */
@@ -491,7 +510,7 @@ public:
       respective lists.  End effectors which do not matter (i.e. can end up in
       any position) can have their pose targets disabled by calling
       clearPoseTarget() for that end_effector_link.
-      
+
       This new orientation target replaces any pre-existing JointValueTarget or
       pre-existing Position, Orientation, or Pose target(s) for this \e
       end_effector_link. */
@@ -511,7 +530,7 @@ public:
       respective lists.  End effectors which do not matter (i.e. can end up in
       any position) can have their pose targets disabled by calling
       clearPoseTarget() for that end_effector_link.
-      
+
       This new orientation target replaces any pre-existing JointValueTarget or
       pre-existing Position, Orientation, or Pose target(s) for this \e
       end_effector_link. */
@@ -574,7 +593,7 @@ public:
   MoveItErrorCode asyncMove();
 
   /** \brief Plan and execute a trajectory that takes the group of joints declared in the constructor to the specified target.
-      This call is always blocking (waits for the execution of the trajectory to complete). */
+      This call is always blocking (waits for the execution of the trajectory to complete) and requires an asynchronous spinner to be started.*/
   MoveItErrorCode move();
 
   /** \brief Compute a motion plan that takes the group declared in the constructor from the current state to the specified
@@ -672,7 +691,7 @@ public:
       the beginning, so that future calls to functions such as
       getCurrentState() will not take so long and are less likely to fail. */
   bool startStateMonitor(double wait = 1.0);
-  
+
   /** \brief Get the current joint values for the joints planned for by this instance (see getJoints()) */
   std::vector<double> getCurrentJointValues();
 
@@ -702,13 +721,13 @@ public:
   /**@{*/
 
   /** \brief Remember the current joint values (of the robot being monitored) under \e name.
-      These can be used by setNamedTarget(). 
+      These can be used by setNamedTarget().
       These values are remembered locally in the client.  Other clients will
       not have access to them. */
   void rememberJointValues(const std::string &name);
 
   /** \brief Remember the specified joint values  under \e name.
-      These can be used by setNamedTarget(). 
+      These can be used by setNamedTarget().
       These values are remembered locally in the client.  Other clients will
       not have access to them. */
   void rememberJointValues(const std::string &name, const std::vector<double> &values);
@@ -735,7 +754,7 @@ public:
   /** \brief Get the names of the constraints known as read from the MongoDB server, if a connection was achieved. */
   std::vector<std::string> getKnownConstraints() const;
 
-  /** \brief Get the actual set of constraints for this MoveGroup. 
+  /** \brief Get the actual set of constraints for this MoveGroup.
       @return A copy of the current path constraints set for this move_group
       */
   moveit_msgs::Constraints getPathConstraints() const;
