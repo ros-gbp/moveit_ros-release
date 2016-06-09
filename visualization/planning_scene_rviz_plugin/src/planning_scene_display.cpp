@@ -148,7 +148,7 @@ PlanningSceneDisplay::PlanningSceneDisplay(bool listen_to_planning_scene, bool s
                              SLOT(changedSceneRobotCollisionEnabled()), this);
 
     robot_alpha_property_ =
-      new rviz::FloatProperty( "Robot Alpha", 0.5f, "Specifies the alpha for the robot links",
+      new rviz::FloatProperty( "Robot Alpha", 1.0f, "Specifies the alpha for the robot links",
                                robot_category_,
                                SLOT( changedRobotSceneAlpha() ), this );
     robot_alpha_property_->setMin( 0.0 );
@@ -205,6 +205,8 @@ void PlanningSceneDisplay::onInitialize()
     planning_scene_robot_->setVisible(true);
     planning_scene_robot_->setVisualVisible(scene_robot_visual_enabled_property_->getBool());
     planning_scene_robot_->setCollisionVisible(scene_robot_collision_enabled_property_->getBool());
+    changedRobotSceneAlpha();
+    changedAttachedBodyColor();
   }
 }
 
@@ -376,8 +378,10 @@ void PlanningSceneDisplay::changedPlanningSceneTopic()
   if (planning_scene_monitor_ && planning_scene_topic_property_)
   {
     planning_scene_monitor_->startSceneMonitor(planning_scene_topic_property_->getStdString());
-    planning_scene_monitor_->requestPlanningSceneState(
-        ros::names::append(getMoveGroupNS(),planning_scene_monitor::PlanningSceneMonitor::DEFAULT_PLANNING_SCENE_SERVICE));
+    std::string service_name = planning_scene_monitor::PlanningSceneMonitor::DEFAULT_PLANNING_SCENE_SERVICE;
+    if (!getMoveGroupNS().empty())
+      service_name = ros::names::append(getMoveGroupNS(), service_name);
+    planning_scene_monitor_->requestPlanningSceneState(service_name);
   }
 }
 
@@ -624,6 +628,7 @@ void PlanningSceneDisplay::updateInternal(float wall_dt, float ros_dt)
   if (current_scene_time_ > scene_display_time_property_->getFloat())
   {
     renderPlanningScene();
+    calculateOffsetPosition();
     current_scene_time_ = 0.0f;
   }
 }
@@ -646,30 +651,11 @@ void PlanningSceneDisplay::calculateOffsetPosition()
   if (!getRobotModel())
     return;
 
-  tf::Stamped<tf::Pose> pose(tf::Pose::getIdentity(), ros::Time(0), getRobotModel()->getModelFrame());
-  static const unsigned int max_attempts = 10;
-  unsigned int attempts = 0;
-  while (!context_->getTFClient()->canTransform(fixed_frame_.toStdString(), getRobotModel()->getModelFrame(), ros::Time(0)) && attempts < max_attempts)
-  {
-    ros::Duration(0.1).sleep();
-    attempts++;
-  }
+  Ogre::Vector3 position;
+  Ogre::Quaternion orientation;
 
-  if (attempts < max_attempts)
-  {
-    try
-    {
-      context_->getTFClient()->transformPose(fixed_frame_.toStdString(), pose, pose);
-    }
-    catch (tf::TransformException& e)
-    {
-      ROS_ERROR( "Error transforming from frame '%s' to frame '%s'", pose.frame_id_.c_str(), fixed_frame_.toStdString().c_str() );
-    }
-  }
+  context_->getFrameManager()->getTransform(getRobotModel()->getModelFrame(), ros::Time(0), position, orientation);
 
-  Ogre::Vector3 position(pose.getOrigin().x(), pose.getOrigin().y(), pose.getOrigin().z());
-  const tf::Quaternion &q = pose.getRotation();
-  Ogre::Quaternion orientation( q.getW(), q.getX(), q.getY(), q.getZ() );
   planning_scene_node_->setPosition(position);
   planning_scene_node_->setOrientation(orientation);
 }
