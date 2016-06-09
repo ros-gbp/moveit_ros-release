@@ -115,7 +115,7 @@ public:
 
   /** @brief Set the state \e upd to the current state maintained by this class. */
   void setToCurrentState(robot_state::RobotState &upd) const;
-  
+
   /** @brief Get the time stamp for the current state */
   ros::Time getCurrentStateTime() const;
 
@@ -163,10 +163,18 @@ public:
     return error_;
   }
 
+  /** @brief Allow the joint_state arrrays velocity and effort to be copied into the robot state
+   *  this is useful in some but not all applications
+   */
+  void enableCopyDynamics(bool enabled)
+  {
+    copy_dynamics_ = enabled;
+  }
+
 private:
 
   void jointStateCallback(const sensor_msgs::JointStateConstPtr &joint_state);
-  bool isPassiveDOF(const std::string &dof) const;
+  bool isPassiveOrMimicDOF(const std::string &dof) const;
 
   ros::NodeHandle                              nh_;
   boost::shared_ptr<tf::Transformer>           tf_;
@@ -174,12 +182,13 @@ private:
   robot_state::RobotState                      robot_state_;
   std::map<std::string, ros::Time>             joint_time_;
   bool                                         state_monitor_started_;
+  bool                                         copy_dynamics_;  // Copy velocity and effort from joint_state
   ros::Time                                    monitor_start_time_;
   double                                       error_;
   ros::Subscriber                              joint_state_subscriber_;
   ros::Time                                    current_state_time_;
   ros::Time                                    last_tf_update_;
-  
+
   mutable boost::mutex                         state_update_lock_;
   std::vector< JointStateUpdateCallback >      update_callbacks_;
 };
