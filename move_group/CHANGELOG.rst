@@ -2,14 +2,15 @@
 Changelog for package moveit_ros_move_group
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.7.1 (2016-04-11)
+0.6.6 (2016-06-08)
 ------------------
-
-0.7.0 (2016-01-30)
-------------------
+* added missing validity check
+  iterator found with `configs.find()` needs to be validated before use...
 * Removed trailing whitespace from entire repository
+* moved planner params services into existing capability QueryPlannerInterfaces
+* capability plugin MoveGroupPlannerParamsService to get/set planner params
 * Fixed bug(?) in move_group::MoveGroupKinematicsService::computeIK link name selection.
-* Contributors: Dave Coleman, Mihai Pomarlan
+* Contributors: Dave Coleman, Mihai Pomarlan, Robert Haschke
 
 0.6.5 (2015-01-24)
 ------------------

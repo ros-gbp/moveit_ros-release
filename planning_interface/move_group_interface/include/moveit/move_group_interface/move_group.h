@@ -148,6 +148,16 @@ public:
   /** \brief Get the description of the planning plugin loaded by the action server */
   bool getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription &desc);
 
+  /** \brief Get the planner parameters for given group and planner_id */
+  std::map<std::string, std::string> getPlannerParams(const std::string &planner_id,
+                                                      const std::string &group="");
+
+  /** \brief Set the planner parameters for given group and planner_id */
+  void setPlannerParams(const std::string &planner_id,
+                        const std::string &group,
+                        const std::map<std::string, std::string> &params,
+                        bool bReplace = false);
+
   /** \brief Get the default planner for a given group (or global default) */
   std::string getDefaultPlannerId(const std::string &group="") const;
 
@@ -166,13 +176,6 @@ public:
       (imporantly, this includes it being set to 0.0), the factor is set to a
       default value of 1.0 internally (i.e. maximum joint velocity) */
   void setMaxVelocityScalingFactor(double max_velocity_scaling_factor);
-
-  /** \brief Set a scaling factor for optionally reducing the maximum joint acceleration.
-      Allowed values are in (0,1]. The maximum joint acceleration specified
-      in the robot model is multiplied by the factor. If outside valid range
-      (imporantly, this includes it being set to 0.0), the factor is set to a
-      default value of 1.0 internally (i.e. maximum joint acceleration) */  
-  void setMaxAccelerationScalingFactor(double max_acceleration_scaling_factor);
 
   /** \brief Get the number of seconds set by setPlanningTime() */
   double getPlanningTime() const;
