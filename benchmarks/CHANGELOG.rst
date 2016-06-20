@@ -2,10 +2,16 @@
 Changelog for package moveit_ros_benchmarks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.6.6 (2016-06-08)
+0.7.2 (2016-06-20)
+------------------
+
+0.7.1 (2016-04-11)
+------------------
+
+0.7.0 (2016-01-30)
 ------------------
 * Removed trailing whitespace from entire repository
-* Adding tf dep fixes `#572 <https://github.com/ros-planning/moveit_ros/issues/572>`_
+* Adding tf dep fixes
 * Contributors: Dave Coleman, Mr-Yellow
 
 0.6.5 (2015-01-24)

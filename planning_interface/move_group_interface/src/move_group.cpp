@@ -53,8 +53,6 @@
 #include <moveit_msgs/ExecuteKnownTrajectory.h>
 #include <moveit_msgs/QueryPlannerInterfaces.h>
 #include <moveit_msgs/GetCartesianPath.h>
-#include <moveit_msgs/GetPlannerParams.h>
-#include <moveit_msgs/SetPlannerParams.h>
 
 #include <actionlib/client/simple_action_client.h>
 #include <eigen_conversions/eigen_msg.h>
@@ -119,6 +117,7 @@ public:
     planning_time_ = 5.0;
     num_planning_attempts_ = 1;
     max_velocity_scaling_factor_ = 1.0;
+    max_acceleration_scaling_factor_ = 1.0;
     initializing_constraints_ = false;
 
     if (joint_model_group_->isChain())
@@ -147,9 +146,6 @@ public:
 
     execute_service_ = node_handle_.serviceClient<moveit_msgs::ExecuteKnownTrajectory>(move_group::EXECUTE_SERVICE_NAME);
     query_service_ = node_handle_.serviceClient<moveit_msgs::QueryPlannerInterfaces>(move_group::QUERY_PLANNERS_SERVICE_NAME);
-    get_params_service_ = node_handle_.serviceClient<moveit_msgs::GetPlannerParams>(move_group::GET_PLANNER_PARAMS_SERVICE_NAME);
-    set_params_service_ = node_handle_.serviceClient<moveit_msgs::SetPlannerParams>(move_group::SET_PLANNER_PARAMS_SERVICE_NAME);
-
     cartesian_path_service_ = node_handle_.serviceClient<moveit_msgs::GetCartesianPath>(move_group::CARTESIAN_PATH_SERVICE_NAME);
 
     ROS_INFO_STREAM("Ready to take MoveGroup commands for group " << opt.group_name_ << ".");
@@ -188,9 +184,14 @@ public:
     }
 
     if (!action->isServerConnected())
-      throw std::runtime_error("Unable to connect to move_group action server within allotted time (2)");
+    {
+      std::string error = "Unable to connect to move_group action server '" + name + "' within allotted time (2)";
+      throw std::runtime_error(error);
+    }
     else
+    {
       ROS_DEBUG("Connected to '%s'", name.c_str());
+    }
   }
 
   ~MoveGroupImpl()
@@ -232,35 +233,6 @@ public:
     return false;
   }
 
-  std::map<std::string, std::string>
-  getPlannerParams(const std::string &planner_id, const std::string &group="") {
-    moveit_msgs::GetPlannerParams::Request req;
-    moveit_msgs::GetPlannerParams::Response res;
-    req.planner_config = planner_id;
-    req.group = group;
-    std::map<std::string, std::string> result;
-    if (get_params_service_.call(req, res)) {
-      for (unsigned int i = 0, end = res.params.keys.size(); i < end; ++i)
-        result[res.params.keys[i]] = res.params.values[i];
-    }
-    return result;
-  }
-
-  void setPlannerParams(const std::string &planner_id, const std::string &group,
-                        const std::map<std::string, std::string> &params, bool replace=false) {
-    moveit_msgs::SetPlannerParams::Request req;
-    moveit_msgs::SetPlannerParams::Response res;
-    req.planner_config = planner_id;
-    req.group = group;
-    req.replace = replace;
-    for (std::map<std::string, std::string>::const_iterator
-         it=params.begin(), end=params.end(); it != end; ++it) {
-      req.params.keys.push_back(it->first);
-      req.params.values.push_back(it->second);
-    }
-    set_params_service_.call(req, res);
-  }
-
   std::string getDefaultPlannerId(const std::string &group) const {
     std::stringstream param_name;
     param_name << "move_group";
@@ -285,6 +257,11 @@ public:
   void setMaxVelocityScalingFactor(double max_velocity_scaling_factor)
   {
     max_velocity_scaling_factor_ = max_velocity_scaling_factor;
+  }
+
+  void setMaxAccelerationScalingFactor(double max_acceleration_scaling_factor)
+  {
+    max_acceleration_scaling_factor_ = max_acceleration_scaling_factor;
   }
 
   robot_state::RobotState& getJointStateTarget()
@@ -716,6 +693,9 @@ public:
 
     if (considered_start_state_)
       robot_state::robotStateToRobotStateMsg(*considered_start_state_, req.start_state);
+    else
+      req.start_state.is_diff = true;
+
     req.group_name = opt_.group_name_;
     req.header.frame_id = getPoseReferenceFrame();
     req.header.stamp = ros::Time::now();
@@ -872,12 +852,15 @@ public:
     goal.request.group_name = opt_.group_name_;
     goal.request.num_planning_attempts = num_planning_attempts_;
     goal.request.max_velocity_scaling_factor = max_velocity_scaling_factor_;
+    goal.request.max_acceleration_scaling_factor = max_acceleration_scaling_factor_;
     goal.request.allowed_planning_time = planning_time_;
     goal.request.planner_id = planner_id_;
     goal.request.workspace_parameters = workspace_parameters_;
 
     if (considered_start_state_)
       robot_state::robotStateToRobotStateMsg(*considered_start_state_, goal.request.start_state);
+    else
+      goal.request.start_state.is_diff = true;
 
     if (active_target_ == JOINT)
     {
@@ -1058,6 +1041,7 @@ private:
   std::string planner_id_;
   unsigned int num_planning_attempts_;
   double max_velocity_scaling_factor_;
+  double max_acceleration_scaling_factor_;
   double goal_joint_tolerance_;
   double goal_position_tolerance_;
   double goal_orientation_tolerance_;
@@ -1085,8 +1069,6 @@ private:
   ros::Publisher attached_object_publisher_;
   ros::ServiceClient execute_service_;
   ros::ServiceClient query_service_;
-  ros::ServiceClient get_params_service_;
-  ros::ServiceClient set_params_service_;
   ros::ServiceClient cartesian_path_service_;
   boost::scoped_ptr<moveit_warehouse::ConstraintsStorage> constraints_storage_;
   boost::scoped_ptr<boost::thread> constraints_init_thread_;
@@ -1132,20 +1114,6 @@ bool moveit::planning_interface::MoveGroup::getInterfaceDescription(moveit_msgs:
   return impl_->getInterfaceDescription(desc);
 }
 
-std::map<std::string, std::string>
-moveit::planning_interface::MoveGroup::getPlannerParams(const std::string &planner_id,
-                                                        const std::string &group) {
-  return impl_->getPlannerParams(planner_id, group);
-}
-
-
-void moveit::planning_interface::MoveGroup::setPlannerParams(const std::string &planner_id,
-                                                             const std::string &group,
-                                                             const std::map<std::string, std::string> &params,
-                                                             bool replace) {
-  impl_->setPlannerParams(planner_id, group, params, replace);
-}
-
 std::string moveit::planning_interface::MoveGroup::getDefaultPlannerId(const std::string &group) const
 {
   return impl_->getDefaultPlannerId(group);
@@ -1166,6 +1134,10 @@ void moveit::planning_interface::MoveGroup::setMaxVelocityScalingFactor(double m
   impl_->setMaxVelocityScalingFactor(max_velocity_scaling_factor);
 }
 
+void moveit::planning_interface::MoveGroup::setMaxAccelerationScalingFactor(double max_acceleration_scaling_factor)
+{
+  impl_->setMaxAccelerationScalingFactor(max_acceleration_scaling_factor);
+}
 
 moveit::planning_interface::MoveItErrorCode moveit::planning_interface::MoveGroup::asyncMove()
 {

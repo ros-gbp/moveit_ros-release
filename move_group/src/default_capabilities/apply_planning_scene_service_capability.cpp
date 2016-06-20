@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2015, University of Colorado, Boulder
+ *  Copyright (c) 2016, Michael 'v4hn' Goerner
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of the Univ of CO, Boulder nor the names of its
+ *   * Neither the name of Willow Garage nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,67 +32,32 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Dave Coleman
-   Desc:   Wraps a trajectory_visualization playback class for Rviz into a stand alone display
-*/
+/* Author: Michael Goerner */
 
-#ifndef MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_DISPLAY
-#define MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_DISPLAY
+#include "apply_planning_scene_service_capability.h"
+#include <moveit/move_group/capability_names.h>
 
-#include <rviz/display.h>
-#include <moveit/rviz_plugin_render_tools/trajectory_visualization.h>
-#include <ros/ros.h>
-#include <moveit/rdf_loader/rdf_loader.h>
-
-namespace rviz
+move_group::ApplyPlanningSceneService::ApplyPlanningSceneService():
+  MoveGroupCapability("ApplyPlanningSceneService")
 {
-class StringProperty;
 }
 
-namespace moveit_rviz_plugin
+void move_group::ApplyPlanningSceneService::initialize()
 {
+  service_ = root_node_handle_.advertiseService(APPLY_PLANNING_SCENE_SERVICE_NAME, &ApplyPlanningSceneService::applyScene, this);
+}
 
-class TrajectoryDisplay : public rviz::Display
+bool move_group::ApplyPlanningSceneService::applyScene(moveit_msgs::ApplyPlanningScene::Request &req, moveit_msgs::ApplyPlanningScene::Response &res)
 {
-  Q_OBJECT
-//friend class TrajectoryVisualization; // allow the visualization class to access the display
+  if (!context_->planning_scene_monitor_)
+  {
+    ROS_ERROR("Cannot apply PlanningScene as no scene is monitored.");
+    return true;
+  }
+  context_->planning_scene_monitor_->updateFrameTransforms();
+  res.success = context_->planning_scene_monitor_->newPlanningSceneMessage(req.scene);
+  return true;
+}
 
-public:
-
-  TrajectoryDisplay();
-
-  virtual ~TrajectoryDisplay();
-
-  void loadRobotModel();
-
-  virtual void update(float wall_dt, float ros_dt);
-  virtual void reset();
-
-  // overrides from Display
-  virtual void onInitialize();
-  virtual void onEnable();
-  virtual void onDisable();
-
-private Q_SLOTS:
-  /**
-   * \brief Slot Event Functions
-   */
-  void changedRobotDescription();
-
-protected:
-
-  // The trajectory playback component
-  TrajectoryVisualizationPtr trajectory_visual_;
-
-  // Load robot model
-  rdf_loader::RDFLoaderPtr rdf_loader_;
-  robot_model::RobotModelConstPtr robot_model_;
-  robot_state::RobotStatePtr robot_state_;
-
-  // Properties
-  rviz::StringProperty* robot_description_property_;
-};
-
-} // namespace moveit_rviz_plugin
-
-#endif
+#include <class_loader/class_loader.h>
+CLASS_LOADER_REGISTER_CLASS(move_group::ApplyPlanningSceneService, move_group::MoveGroupCapability)

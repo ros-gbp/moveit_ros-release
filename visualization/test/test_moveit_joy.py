@@ -40,7 +40,6 @@ import unittest
 from geometry_msgs.msg import Pose
 from moveit_ros_visualization.moveit_joy import MoveitJoy
 import rospy
-import rostest
 
 import math
 from tf.transformations import quaternion_from_euler
@@ -52,6 +51,7 @@ class TestMoveitJoy(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
+        rospy.init_node(_NODENAME)
         self.moveit_joy = MoveitJoy()
 
     @classmethod
@@ -70,5 +70,5 @@ class TestMoveitJoy(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    rospy.init_node(_NODENAME)
+    import rostest
     rostest.rosrun(_PKGNAME, _NODENAME, TestMoveitJoy) 

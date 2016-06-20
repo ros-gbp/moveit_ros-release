@@ -20,7 +20,7 @@ env:
     # Specify which repositories to build too
     - MOVEIT_REPOS="moveit_core moveit_planners moveit_msgs moveit_plugins moveit_ros"
   matrix:
-    - ROS_DISTRO="jade"   ROS_REPOSITORY_PATH=http://packages.ros.org/ros/ubuntu
+    - ROS_DISTRO="indigo"   ROS_REPOSITORY_PATH=http://packages.ros.org/ros/ubuntu
 
 before_install: # Use this to prepare the system to install prerequisites or dependencies
   # Define some config vars

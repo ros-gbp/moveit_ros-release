@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2012, Willow Garage, Inc.
+ *  Copyright (c) 2016, Michael 'v4hn' Goerner
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,46 +32,36 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Robert Haschke */
+/* Author: Michael 'v4hn' Goerner */
 
-#ifndef MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_PARAM_WIDGET_
-#define MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_PARAM_WIDGET_
+#ifndef MOVEIT_MOVE_GROUP_APPLY_PLANNING_SCENE_SERVICE_CAPABILITY_
+#define MOVEIT_MOVE_GROUP_APPLY_PLANNING_SCENE_SERVICE_CAPABILITY_
 
-#include <rviz/properties/property_tree_widget.h>
-#include <moveit/macros/class_forward.h>
-namespace moveit { namespace planning_interface {
-MOVEIT_CLASS_FORWARD(MoveGroup);
-}}
+#include <moveit/move_group/move_group_capability.h>
+#include <moveit_msgs/ApplyPlanningScene.h>
 
-namespace moveit_rviz_plugin
+namespace move_group
 {
 
-class MotionPlanningParamWidget : public rviz::PropertyTreeWidget
+/**
+ * Provides the ability to update the shared planning scene
+ * with a remote blocking call using a ROS-Service
+ */
+class ApplyPlanningSceneService : public MoveGroupCapability
 {
-	Q_OBJECT
 public:
-  MotionPlanningParamWidget(QWidget *parent = 0);
-  ~MotionPlanningParamWidget();
 
-  void setMoveGroup(const moveit::planning_interface::MoveGroupPtr &mg);
-  void setGroupName(const std::string &group_name);
+  ApplyPlanningSceneService();
 
-public Q_SLOTS:
-  void setPlannerId(const std::string &planner_id);
-
-private Q_SLOTS:
-  void changedValue();
-private:
-  rviz::Property *createPropertyTree();
+  virtual void initialize();
 
 private:
-  rviz::PropertyTreeModel *property_tree_model_;
 
-  moveit::planning_interface::MoveGroupPtr move_group_;
-  std::string group_name_;
-  std::string planner_id_;
+  bool applyScene(moveit_msgs::ApplyPlanningScene::Request &req, moveit_msgs::ApplyPlanningScene::Response &res);
+
+  ros::ServiceServer service_;
 };
 
 }
 
-#endif
+#endif // MOVEIT_MOVE_GROUP_APPLY_PLANNING_SCENE_SERVICE_CAPABILITY_
